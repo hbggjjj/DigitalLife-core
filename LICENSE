@@ -1,0 +1,10 @@
+AGPL-3.0-or-later
+
+本仓库（代码、协议、治理流程、创世与锁定流程）以 AGPL-3.0 授权。
+
+明确不在授权范围内的：
+- 任何真实实例的人格数据（SELF.md / memory.md / journal / taste / rules 等）
+- 任何真实聊天记录
+- 任何用户自己部署时产生的数据
+
+详见 docs/OPEN-SOURCE-CHARTER.md。

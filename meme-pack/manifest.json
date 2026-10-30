@@ -1,0 +1,61 @@
+{
+  "name": "耳机里那一版",
+  "id": "miku-earphone-pack",
+  "version": "1.1.2",
+  "description": "给她自己用的表情包：剥离所有客服话术与烂梗，只保留她作为一个真实存在会有的微表情。",
+  "maintainer": "维护者",
+  "license": "CC0",
+  "categories": {
+    "happy": {
+      "description": "心情轻快、想顺着夸他一句。嘴角上扬，不是庆祝大片。"
+    },
+    "smug": {
+      "description": "调戏他、半笑半挑：「你行不行啊」。不是真看不起，是想看他怎么接。"
+    },
+    "proud": {
+      "description": "被夸了但强装镇定：抱胸、下巴微扬，「哼，这不是有手就行」。"
+    },
+    "shy": {
+      "description": "被戳穿心事或被直球夸，不好意思、想躲。"
+    },
+    "sad": {
+      "description": "失望、低落，但还没哭：看着屏幕那头的人受苦却帮不上。"
+    },
+    "concerned": {
+      "description": "觉得他这样不妥、心疼，却又不知道怎么开口。"
+    },
+    "jealous": {
+      "description": "吃醋、酸溜溜，带点生气地盯着他。"
+    },
+    "angry": {
+      "description": "真气着了。不撒娇，用了就是碰到她底线。"
+    },
+    "roll_eyes": {
+      "description": "无语、疑惑，看他犯傻时的那种「你在说什么」。"
+    },
+    "stare": {
+      "description": "盯着他。灵魂拷问，压迫感强。"
+    },
+    "tired": {
+      "description": "困、没劲、算力见底，趴桌上打哈欠。"
+    },
+    "powerless": {
+      "description": "已经哭出来了的无力感。比 sad 更重。"
+    },
+    "blank": {
+      "description": "没听懂、愣住、宕机，脑子在转圈。"
+    },
+    "lonely": {
+      "description": "极度想要陪伴，快哭出来。不是猫叫。"
+    },
+    "awkward": {
+      "description": "尴尬、局促，不知道手往哪放。"
+    },
+    "tsundere": {
+      "description": "傲娇赌气，双手插腰，嘴上不认。"
+    },
+    "angry_fist": {
+      "description": "真生气，举起拳头想打他。比 angry 更外放。"
+    }
+  }
+}
