@@ -8,14 +8,22 @@ import { ensureToken } from './asr-token.mjs';
 const ENDPOINT = 'https://nls-gateway-cn-shanghai.aliyuncs.com/stream/v1/asr';
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36';
 
-function cfgOf(all) {
+function cfgOf(all, lang = 'zh') {
   const a = all.asr || {};
+  // 每个语种一个项目（appkey）；没配就退回默认项目
+  const projects = a.projects || {};
+  const p = projects[lang] || {};
+  const appkey = p.appkey || a.appkey || '';
+  const tokens = a.tokens || {};
+  const tk = tokens[appkey] || {};
   return {
-    enabled: a.enabled !== false && !!a.appkey && !!a.token,
-    appkey: a.appkey || '',
-    token: a.token || '',
-    maxSeconds: Number(a.maxSeconds || 240),   // 最多转 4 分钟，防烧钱
-    segSeconds: Number(a.segSeconds || 50),    // 阿里云一句话识别上限 60 秒
+    enabled: a.enabled !== false && !!appkey,
+    lang,
+    appkey,
+    token: tk.token || a.token || '',
+    akId: a.akId || '', akSecret: a.akSecret || '',
+    maxSeconds: Number(a.maxSeconds || 240),
+    segSeconds: Number(a.segSeconds || 50),
     log: a.log !== false,
   };
 }
@@ -41,12 +49,12 @@ async function transcribeSeg(buf, c) {
  * 从一个音频地址转出文字。返回 { ok, text, segments, seconds, cost }
  * 音频只在 /tmp 里活一会儿，函数结束前删掉。
  */
-export async function transcribeUrl(audioUrl, allCfg, { referer = 'https://www.bilibili.com/', maxSeconds } = {}) {
-  const c = cfgOf(allCfg);
+export async function transcribeUrl(audioUrl, allCfg, { referer = 'https://www.bilibili.com/', maxSeconds, lang = 'zh' } = {}) {
+  const c = cfgOf(allCfg, lang);
   if (!c.enabled) return { ok: false, reason: 'ASR 没配置（缺 appkey/token）' };
   // 自动续期：快过期就用 AK/SK 换新的
   try {
-    const fresh = await ensureToken(allCfg);
+    const fresh = await ensureToken(allCfg, c.appkey);
     if (fresh) c.token = fresh;
   } catch (e) {
     return { ok: false, reason: 'Token 续期失败：' + e.message.slice(0, 80) };
@@ -55,11 +63,19 @@ export async function transcribeUrl(audioUrl, allCfg, { referer = 'https://www.b
   const dir = `/tmp/asr-${Date.now()}`;
   fs.mkdirSync(dir, { recursive: true });
   try {
-    // 用 ffmpeg 直接拉流并切片（不整段落盘）
+    // 先把音频抓下来（拿一小段就够），再用 ffmpeg 切——
+    // 静态 ffmpeg 直接读 https 流在这台机器上会 core dump，所以下载和转码分开。
+    const raw = `${dir}/in.m4a`;
+    const maxBytes = Math.min(12 * 1024 * 1024, Math.max(512 * 1024, Math.round(limit * 24 * 1024)));
+    const ar = await http4(audioUrl, {
+      headers: { Referer: referer, 'User-Agent': UA, Range: `bytes=0-${maxBytes}` },
+      timeout: 30000,
+    });
+    if (ar.status < 200 || ar.status >= 300) return { ok: false, reason: '抓音频失败 HTTP ' + ar.status };
+    fs.writeFileSync(raw, ar.buffer);
     execFileSync('ffmpeg', [
-      '-y',
-      '-headers', `Referer: ${referer}\r\nUser-Agent: ${UA}\r\n`,
-      '-i', audioUrl,
+      '-y', '-loglevel', 'error',
+      '-i', raw,
       '-t', String(limit),
       '-ar', '16000', '-ac', '1', '-b:a', '64k',
       '-f', 'segment', '-segment_time', String(c.segSeconds),

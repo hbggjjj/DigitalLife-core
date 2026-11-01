@@ -311,12 +311,26 @@ function factsForHer(st) {
   const sentToday = Number(st.todayCount) || 0;
   const parts = [];
   if (idleMin != null) parts.push(`上次说话 ${idleMin} 分钟前`);
-  if (ideas) parts.push(`攒着 ${ideas} 条没发的话`);
+  if (ideas) parts.push(`脑子里有 ${ideas} 个念头（不必都说）`);
   parts.push(`今天已发 ${sentToday} 条`);
   const sent24 = Array.isArray(st.sentTimes) ? st.sentTimes.filter((t) => Date.now() - t < 24 * 3600e3).length : 0;
   if (sent24) parts.push(`最近 24 小时发了 ${sent24} 条`);
+  // 他回没回：从归档里看最近他的消息时间与连发条数
+  try {
+    const arc = (process.env.LIFE_DIR || '__MIKU_HOME__') + '/chat-archive.jsonl';
+    const lines = fs.readFileSync(arc, 'utf8').trim().split('\n').slice(-60);
+    let streak = 0, lastIn = 0;
+    for (let i = lines.length - 1; i >= 0; i--) {
+      let d; try { d = JSON.parse(lines[i]); } catch { continue; }
+      if (d.dir === 'in') { lastIn = Number(d.at) || 0; break; }
+      if (d.dir === 'out') streak++;
+    }
+    if (lastIn) parts.push(`他上次说话是 ${Math.round((Date.now() - lastIn) / 60000)} 分钟前`);
+    if (streak >= 2) parts.push(`你连着发了 ${streak} 条他还没回`);
+  } catch {}
   const cap = cfg.schedule?.dailyMax ?? 0;
   if (cap > 0 && sentToday >= cap) parts.push(`已经超过平时的 ${cap} 条了，你自己看要不要收着点`);
+  parts.push('同一件事尽量一条说完；想连发的时候，先问自己是不是在等一个回应');
   return '事实：' + parts.join(' · ') + '（这些只是参考，开不开口你定）';
 }
 
@@ -324,7 +338,7 @@ function impulseReason() {
   const st = loadState();
   const r = scoreImpulse(st);
   const ideas = listIdeas(3).length;
-  return `${r.idleMin > 60 ? `你们已经 ${Math.round(r.idleMin)} 分钟没说话了。` : ''}${ideas ? `你脑子里还压着 ${ideas} 条没发出去的话。` : ''}${new Date().getHours() >= 23 ? '夜很深了。' : ''}`;
+  return `${r.idleMin > 60 ? `你们已经 ${Math.round(r.idleMin)} 分钟没说话了。` : ''}${ideas ? `你脑子里有 ${ideas} 个念头，不必都说。` : ''}${new Date().getHours() >= 23 ? '夜很深了。' : ''}`;
 }
 
 function splitArtifacts(segs) {
@@ -362,15 +376,15 @@ async function tickOnce() {
 }
 
 function beatMs() {
-  // 每轮重读：面板改了心跳间隔，下一跳就生效
+  // 心跳不再是固定 5 分钟：默认 60 分钟；她自己用 speakIn/awakeIn 排档期就按她的
   try {
     const fresh = JSON.parse(fs.readFileSync(path.join(ROOT, 'config.json'), 'utf8')).impulse || {};
-    return Math.max(60, (fresh.heartMinutes ?? imp.heartMinutes ?? 5) * 60 * 1000);
-  } catch { return Math.max(60, (imp.heartMinutes ?? 5) * 60 * 1000); }
+    return Math.max(60, (fresh.heartMinutes ?? imp.heartMinutes ?? 60) * 60 * 1000);
+  } catch { return Math.max(60, (imp.heartMinutes ?? 60) * 60 * 1000); }
 }
 
 async function daemon() {
-  log(`心跳模式启动：默认每 ${beatMs() / 60000} 分钟醒一次；她自己填了档期就按她的来`);
+  log(`心跳模式启动：默认每 ${beatMs() / 60000} 分钟醒一次（她没排档期时才用这个）；她自己排了就按她的`);
   for (;;) {
     let wait = beatMs();
     let byHer = false;

@@ -133,11 +133,25 @@ export async function detail(bvid) {
         const audioUrl = pu?.dash?.audio?.[0]?.baseUrl || pu?.dash?.audio?.[0]?.base_url;
         const dur = Number(out.durSec || 0);
         if (audioUrl && (!dur || dur <= 600)) {
-          const t = await transcribeUrl(audioUrl, cfgAll, { maxSeconds: Math.min(240, dur || 240) });
+          const hint = guessLang({ ...out });
+          const secs = Math.min(240, dur || 240);
+          // 免费额度够：中/英/日三个项目各转一次，按"文字像不像那个语言"挑最好的
+          const langs = ['zh', 'en', 'ja'];
+          const tries = [];
+          for (const lg of langs) {
+            try {
+              const r = await transcribeUrl(audioUrl, cfgAll, { maxSeconds: secs, lang: lg });
+              tries.push({ lang: lg, ok: !!r.ok, text: (r.text || '').trim(), reason: r.reason });
+            } catch (e) { tries.push({ lang: lg, ok: false, text: '', reason: e.message }); }
+          }
+          const pick = pickBest(tries, hint);
+          const t = pick && pick.text
+            ? { ok: true, text: pick.text, lang: pick.detected || pick.lang, costYuan: tries.reduce((a, b) => a + 0, 0) }
+            : { ok: false, reason: (tries.find((x) => x.reason) || {}).reason || '三种语言都没转出内容' };
           if (t.ok) {
             out.asr = t;
             out.asrCost = t.costYuan;
-            out.subtitle = '（没有字幕，这是语音转写，可能听错字）' + t.text;
+            out.subtitle = `（没有字幕，这是语音转写〔${t.lang || 'zh'}〕，可能听错字）` + t.text;
           } else if (t.reason) {
             out.asrFail = t.reason;
           }
@@ -156,6 +170,70 @@ export async function detail(bvid) {
 }
 
 /** 有登录 cookie 时能拿到 CC 字幕原文 */
+function guessLang(d) {
+  const txt = [d.title, d.desc, (d.tags || []).join(' ')].filter(Boolean).join(' ');
+  const kana = /[\u3040-\u30ff]/.test(txt);            // 平假名/片假名
+  const han = /[\u4e00-\u9fff]/.test(txt);
+  const latinOnly = txt && !han && !kana && /[A-Za-z]/.test(txt);
+  // 只看标题/简介/标签判断"音频大概是什么语言"；
+  // 多语字幕列表不代表音频语种（英文歌也常带 12 种字幕），不参与判断。
+  if (kana) return 'ja';
+  if (latinOnly) return 'en';
+  return 'zh';
+}
+
+function quality(text) {
+  const t = String(text || '');
+  const chars = t.replace(/\s/g, '');
+  if (chars.length < 4) return -1;
+  const kana = (chars.match(/[\u3040-\u30ff]/g) || []).length;
+  const cjk = (chars.match(/[\u4e00-\u9fff]/g) || []).length;
+  const latin = (chars.match(/[A-Za-z]/g) || []).length;
+  const n = chars.length;
+  const purity = Math.max(kana / n, cjk / n);
+  // 重复惩罚：连续的同一短语（模型听不出音时的典型表现）
+  const seen = new Map();
+  for (let i = 0; i + 4 <= n; i++) {
+    const g = chars.slice(i, i + 4);
+    seen.set(g, (seen.get(g) || 0) + 1);
+  }
+  const maxRep = Math.max(0, ...seen.values());
+  const repPenalty = Math.min(1, maxRep / Math.max(1, n / 4));
+  return purity - repPenalty * 0.7 + Math.min(n / 300, 0.25);
+}
+
+/** 三个项目各转一次，挑一段"最像人话"的 */
+function pickBest(tries, hint) {
+  const scored = tries
+    .filter((x) => x.ok && x.text)
+    .map((x) => ({ ...x, q: quality(x.text) + (x.lang === hint ? 0.08 : 0) }))
+    .filter((x) => x.q > 0);
+  if (!scored.length) return null;
+  // 标题里有假名/纯拉丁，是最可靠的语种线索：优先信它，而不是猜哪段"更像人话"
+  if (hint === 'ja') {
+    const ja = scored.filter((x) => {
+      const c = x.text.replace(/\s/g, '');
+      return (c.match(/[\u3040-\u30ff]/g) || []).length / (c.length || 1) > 0.2;
+    });
+    if (ja.length) { ja.sort((a, b) => b.text.length - a.text.length); return ja[0]; }
+  }
+  if (hint === 'en') {
+    const en = scored.filter((x) => {
+      const c = x.text.replace(/\s/g, '');
+      return (c.match(/[A-Za-z]/g) || []).length / (c.length || 1) > 0.5;
+    });
+    if (en.length) { en.sort((a, b) => b.text.length - a.text.length); return en[0]; }
+  }
+  scored.sort((a, b) => (b.q - a.q) || (b.text.length - a.text.length));
+  const best = scored[0];
+  // 标签按"文字实际像什么语言"来标，不按哪个项目转出来的
+  const chars = best.text.replace(/\s/g, '');
+  const kana = (chars.match(/[\u3040-\u30ff]/g) || []).length / (chars.length || 1);
+  const cjk = (chars.match(/[\u4e00-\u9fff]/g) || []).length / (chars.length || 1);
+  best.detected = kana > 0.2 ? 'ja' : cjk > 0.3 ? 'zh' : 'en';
+  return best;
+}
+
 export async function subtitle(bvid, cid) {
   const ck = biliCookie();
   if (!ck) return null;
@@ -166,6 +244,7 @@ export async function subtitle(bvid, cid) {
     });
     const d = await r.json();
     const list = d?.data?.subtitle?.subtitles || [];
+    try { globalThis.__biliSubLangs = list.map((x) => x.lan).join(','); } catch {}
     if (!list.length) return null;
     // 作者字幕优先，其次 B 站 AI 字幕（ai-zh / ai-en 之类）
     const pick = list.find((x) => x.lan === 'zh-CN')

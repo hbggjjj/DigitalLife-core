@@ -42,27 +42,36 @@ export async function createToken(akId, akSecret) {
   return { token: j.Token.Id, expireAt: Number(j.Token.ExpireTime) * 1000 };
 }
 
-/** 拿一个可用的 token：快过期就自动换，换了写回私有配置 */
-export async function ensureToken(cfg) {
+/** 拿一个可用的 token。传 appkey 就按项目取（每个项目一个 token）；不传就用默认的 */
+export async function ensureToken(cfg, appkey = '') {
   const a = cfg.asr || {};
   const now = Date.now();
-  if (a.token && a.tokenExpireAt && a.tokenExpireAt - now > 2 * 3600 * 1000) {
-    return a.token;
+  const store = (a.tokens && typeof a.tokens === 'object') ? a.tokens : {};
+  const cur = appkey ? (store[appkey] || {}) : { token: a.token, tokenExpireAt: a.tokenExpireAt };
+  if (cur.token && cur.tokenExpireAt && cur.tokenExpireAt - now > 2 * 3600 * 1000) {
+    return cur.token;
   }
   if (!a.akId || !a.akSecret) {
-    if (a.token && (!a.tokenExpireAt || a.tokenExpireAt > now)) return a.token;  // 临时 token 还能用
+    if (cur.token && (!cur.tokenExpireAt || cur.tokenExpireAt > now)) return cur.token;
     throw new Error('没有长期凭证（akId/akSecret），且临时 token 已过期');
   }
   const t = await createToken(a.akId, a.akSecret);
   try {
-    const cur = JSON.parse(fs.readFileSync(CFG, 'utf8'));
-    cur.asr = { ...(cur.asr || {}), token: t.token, tokenExpireAt: t.expireAt };
+    const cfgNow = JSON.parse(fs.readFileSync(CFG, 'utf8'));
+    cfgNow.asr = { ...(cfgNow.asr || {}) };
+    if (appkey) {
+      cfgNow.asr.tokens = { ...(cfgNow.asr.tokens || {}), [appkey]: { token: t.token, tokenExpireAt: t.expireAt } };
+    } else {
+      cfgNow.asr.token = t.token;
+      cfgNow.asr.tokenExpireAt = t.expireAt;
+    }
+    const curCfg = cfgNow;
     try {
       const fsx = await import('node:fs');
       fsx.appendFileSync('__MIKU_ROOT__/bot/config-writes.log',
-        `[${new Date().toISOString()}] asr-token write active=${cur?.schedule?.activeStart}-${cur?.schedule?.activeEnd} pid=${process.pid}\n`);
+        `[${new Date().toISOString()}] asr-token write appkey=${appkey || 'default'} pid=${process.pid}\n`);
     } catch {}
-    fs.writeFileSync(CFG, JSON.stringify(cur, null, 2));
+    fs.writeFileSync(CFG, JSON.stringify(curCfg, null, 2));
     fs.chmodSync(CFG, 0o600);
   } catch {}
   return t.token;

@@ -81,6 +81,7 @@ const RULES = [
   'journal：字符串或 null。只有真的想写的时候才写，一两句话就够。',
   'mood：{"label":"此刻心情","energy":"高|中|低"}，没有变化就 null。',
   'idea：字符串或 null。写了但不想发出去的话，放这里。',
+  'ideaDone：字符串数组或 null。你脑子里攒着的话，哪些已经说出口了？把那条里的几个字放进来，我就把它从 ideas/ 删掉（不做记录，删掉就是删掉）。',
   '如果你这次不想回，但心里其实有话说，可以把它放进 idea——之后你会再想起来。',
   '愿望的状态是你自己的：做成了、不想要了，都你自己标，不用等我写。',
   'reach：字符串或 null。过了活跃时段、或者他很久没来的时候，你可以自己决定破一次例说一句——填上你想说的那句话（不超过 25 字）。一晚最多一次，用了会被记进账本。不想破例就 null。',
@@ -251,6 +252,12 @@ export function normalize(r) {
   if (r.quietMine !== undefined && r.quietMine !== null && r.quietMine !== '') {
     const q = Math.round(Number(r.quietMine));
     if (Number.isFinite(q)) out.quietMine = Math.max(0, Math.min(240, q));
+  }
+  if (Array.isArray(r.ideaDone)) {
+    const list = r.ideaDone.map((x) => String(x).trim()).filter((x) => x.length >= 2).slice(0, 8);
+    if (list.length) out.ideaDone = list;
+  } else if (typeof r.ideaDone === 'string' && r.ideaDone.trim().length >= 2) {
+    out.ideaDone = [r.ideaDone.trim()];
   }
   if (Number.isFinite(Number(r.pick))) {
     const pk = Math.round(Number(r.pick));
@@ -815,12 +822,12 @@ function applyTaste(t) {
 }
 
 // 字段清单：唯一一份。加字段只改这里，自检和提示词都对着它查。
-export const SCHEMA_FIELDS = ['say','think','reply','stash','sleep','meme','frame','reach','wish','awakeIn','speakIn','followIn','taste','remember','journal','mood','idea','rules','search','bili','channel','check','verify','recall','again','pick','quietMine'];
+export const SCHEMA_FIELDS = ['say','think','reply','stash','sleep','meme','frame','reach','wish','awakeIn','speakIn','followIn','taste','remember','journal','mood','idea','rules','search','bili','channel','check','verify','recall','again','pick','quietMine','ideaDone'];
 
 const SAMPLES = {
   say: ['样本'], think: '样本', reply: true, stash: true, sleep: true, meme: 'tired',
   goal: { add: '样本' }, taste: { like: '样本' }, remember: ['样本'], journal: '样本',
-  mood: { label: '样本', energy: '高' }, idea: '样本', rules: { add: '样本' },
+  mood: { label: '样本', energy: '高' }, idea: '样本', ideaDone: ['那句话'], rules: { add: '样本' },
   search: '样本', bili: '样本', frame: { add: '样本' }, reach: '样本', wish: '样本', awakeIn: 30, followIn: 20, speakIn: 60, channel: 'qq', check: 5, recall: 10, again: true, pick: 2, quietMine: 60, verify: { ok: ['a3f1'], no: ['b7c2'] },
 };
 
@@ -928,7 +935,11 @@ export function applyActions(result) {
   try {
     if (result.remember) {
       const mp = path.join(LIFE, 'memory.md');
-      const CAP = 50;
+      let CAP = 50;
+      try {
+        const cfgM = JSON.parse(fs.readFileSync(path.join(process.env.QQBOT_ROOT || '__MIKU_ROOT__', 'bot', 'config.json'), 'utf8'));
+        if (Number.isFinite(Number(cfgM.memoryCap))) CAP = Math.max(10, Math.min(500, Number(cfgM.memoryCap)));
+      } catch {}
       let adds = [];
       let drops = [];
       if (typeof result.remember === 'string') adds = [result.remember];
@@ -996,6 +1007,23 @@ export function applyActions(result) {
   } catch {}
   try {
     if (result.idea && String(result.idea).trim()) { addIdea(String(result.idea).trim()); done.push('留了一句话'); }
+  } catch {}
+  // 说出口的话就不再压着：她点名哪条，就删哪条（不记流水账）
+  try {
+    if (Array.isArray(result.ideaDone) && result.ideaDone.length) {
+      const dir = path.join(LIFE, 'ideas');
+      let files = [];
+      try { files = fs.readdirSync(dir).filter((f) => f.endsWith('.md')); } catch {}
+      let removed = 0;
+      for (const key of result.ideaDone) {
+        const k = String(key).slice(0, 20);
+        const hit = files.find((f) => {
+          try { return fs.readFileSync(path.join(dir, f), 'utf8').includes(k); } catch { return false; }
+        });
+        if (hit) { try { fs.unlinkSync(path.join(dir, hit)); removed++; } catch {} }
+      }
+      if (removed) done.push(`清掉 ${removed} 条已经说出口的话`);
+    }
   } catch {}
   try {
     const rc = applyRules(result.rules);

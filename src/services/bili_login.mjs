@@ -18,7 +18,15 @@ export async function generate() {
   session = { key: d.data.qrcode_key, url: d.data.url, at: Date.now() };
   try {
     execFileSync('qrencode', ['-o', QR_FILE, '-s', '8', '-m', '4', '-l', 'M', d.data.url]);
-  } catch (e) { throw new Error('画二维码失败: ' + e.message); }
+  } catch {
+    // 没装 qrencode（apt 源常连不上）：用 Python 的 qrcode 库画
+    try {
+      execFileSync('python3', ['-c', `
+import sys, qrcode
+img = qrcode.make(sys.argv[1]); img.save(sys.argv[2])
+`, d.data.url, QR_FILE]);
+    } catch (e2) { throw new Error('画二维码失败: ' + e2.message); }
+  }
   return { ...session, file: QR_FILE };
 }
 

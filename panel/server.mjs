@@ -344,7 +344,7 @@ summary{cursor:pointer;font-size:13px;color:#b9b9cc;padding:4px 0}
   <div class="hint" style="text-align:left">由她自己决定（1–240 分钟，最短 1 分钟）。这里只显示，不能改。</div>
 
   <div class="k" style="margin:16px 0 6px;color:#5fd39a">③ 她多久想一次要不要找你</div>
-  <div class="row"><span class="k">默认节奏</span><span class="v" id="heartInfo">—</span></div>
+  <div class="row"><span class="k">默认节奏（她没排档期时）</span><span class="v" id="heartInfo">—</span></div>
   <div class="hint" style="text-align:left">她自己排了档期就按她的来；没排时才用这个默认间隔。</div>
 
   <div class="btns"><button class="primary" id="saveTimeBtn" onclick="saveTime()">保存时间设置</button></div>
@@ -588,7 +588,7 @@ function renderHerClock(c){
       w.style.color=c.nextWakeBy==='herself'?'#5fd39a':'#8b8ba7';
     } else { w.textContent='还没排'; }
   }
-  if(by) by.textContent = c.nextWakeBy==='herself' ? '她自己排的' : '默认节奏';
+  if(by) by.textContent = c.nextWakeBy==='herself' ? '她自己排的' : '默认节奏（她没排档期时）';
   if(sp){
     if(c.speakInAt && c.speakInAt>Date.now()){
       var l2=Math.max(0,Math.round((c.speakInAt-Date.now())/60000));

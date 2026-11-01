@@ -549,6 +549,10 @@ function splitArtifacts(segs) {
     .slice(0, 3);
 }
 
+function oneMessageHint() {
+  return '\n【说话方式】同一件事尽量一条说完；想连发几条之前，先问自己是不是在等一个回应。没有硬限制，你自己定。';
+}
+
 function clientPresenceLine() {
   try {
     const p = JSON.parse(fs.readFileSync('__MIKU_ROOT__/bot/client-presence.json', 'utf8'));
@@ -597,7 +601,7 @@ async function generateReplyInner(historyLines, userText, imagePath = null, chan
       : (channel === 'web' ? '他·网页' : '他·QQ')
         + (flags.agent ? '·代发' : '')
         + (flags.resend ? '·补发' : '');
-  const result = await mindReply(historyLines, userText, buildSelfStats() + sleepHint + clientPresenceLine(), { noBrowse: SLEEP_RE.test(userText), imagePath, channelNote, fromTag });
+  const result = await mindReply(historyLines, userText, buildSelfStats() + sleepHint + clientPresenceLine() + oneMessageHint(), { noBrowse: SLEEP_RE.test(userText), imagePath, channelNote, fromTag });
   const segs = pickSay(result);
   const applied = applyActions(result);
   // 她可以在任何一次回复里改自己的"下次醒来"——不用等下一次生活循环

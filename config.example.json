@@ -45,5 +45,19 @@
     "dayIntervalMinutes": 20,
     "quietMinutes": 15
   },
-  "instanceName": ""
+  "instanceName": "",
+  "memoryCap": 50,
+  "asr": {
+    "projects": {
+      "zh": {
+        "appkey": ""
+      },
+      "en": {
+        "appkey": ""
+      },
+      "ja": {
+        "appkey": ""
+      }
+    }
+  }
 }
