@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // 它自己的时间：不做同一套流程，自己挑事情做；顺手维护心情和记忆
 import fs from 'node:fs';
 import os from 'node:os';
@@ -13,6 +14,7 @@ import { emit } from '../utils/events.mjs';
 import { logErr } from '../utils/errlog.mjs';
 import { sync as syncClock } from '../utils/clock.mjs';
 import { syncFramework, verifySync } from '../utils/sync-framework.mjs';
+import { innerMonologue, minutesSinceHisLast, latestMonologue } from './inner.mjs';
 import { rebuild as rebuildSoul } from './soul.mjs';
 
 const ROOT = '__MIKU_ROOT__/bot';
@@ -302,7 +304,29 @@ async function cycle() {
       log(`上几轮联网都不顺，这轮不联网（退避）`);
       emit('life', 'skip', '上次联网没成功，这次先不联网');
     }
-    const result = await reflect(mode, ctxLine(), { noNet: bo.skip });
+    // 独处久了先写一段只给自己看的独白，让她先消化，再决定要不要开口
+    let extra = ctxLine();
+    try {
+      const gapHis = minutesSinceHisLast();
+      if (gapHis >= 90) {
+        const moodText = (() => { try { return fs.readFileSync('__MIKU_HOME__/mood.md', 'utf8'); } catch { return ''; } })();
+        const mine = (() => {
+          try {
+            return fs.readFileSync('__MIKU_HOME__/chat-archive.jsonl', 'utf8').trim().split('\n').slice(-12)
+              .map((l) => { try { const d = JSON.parse(l); return d.dir === 'out' ? d.text : null; } catch { return null; } })
+              .filter(Boolean);
+          } catch { return []; }
+        })();
+        const mono = await innerMonologue({ moodText, myRecentLines: mine, gapMin: gapHis });
+        if (mono) {
+          emit('life', 'inner', mono.slice(0, 70));
+          log('写了段独白（只给自己看）');
+          extra += `\n\n【心里的声音，别人听不到】${mono}`;
+        }
+      }
+    } catch (e) { log('独白失败（不影响这一轮）: ' + e.message); }
+
+    const result = await reflect(mode, extra, { noNet: bo.skip });
     // 她提的刹车：连着干同一件事超过十轮，只提醒一句，不拦
     try {
       const cat = (result && typeof result.bili === 'string' && result.bili) ? '刷 B 站'
@@ -352,7 +376,16 @@ async function wakeOnce() {
     }
     log('容器重启了，她接着过（不是醒来）');
     emit('life', 'think_start', '她开始过自己的时间');
-    const r = await reflect('wake', ctxLine());
+    let wakeExtra = ctxLine();
+    try {
+      const gapHis = minutesSinceHisLast();
+      if (gapHis >= 60) {
+        const moodText = (() => { try { return fs.readFileSync('__MIKU_HOME__/mood.md', 'utf8'); } catch { return ''; } })();
+        const mono = await innerMonologue({ moodText, gapMin: gapHis });
+        if (mono) wakeExtra += `\n\n【心里的声音，别人听不到】${mono}`;
+      }
+    } catch {}
+    const r = await reflect('wake', wakeExtra);
     const applied = applyActions(r);
     log(`回来后：${applied.join('、') || '只是看了一眼'}`);
     emit('life', 'think_end', applied.length ? '回来后' + applied.join('、') : '回来看了一眼');

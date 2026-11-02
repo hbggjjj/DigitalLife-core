@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # 改动前打快照：bot/ panel/ scripts/ README。出问题一条命令回去。
 set -e
 ROOT=__MIKU_ROOT__

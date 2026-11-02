@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // 实例的名字：不写死在代码里。优先 config.instanceName，其次她自己的 SELF.md。
 import fs from 'node:fs';
 import path from 'node:path';

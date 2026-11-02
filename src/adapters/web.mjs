@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Web 通道（预留）：浏览器/WebSocket 接到 core 的统一入口
 // 只实现接口，不接生产。等真要用时，把 sendText 换成 WS 推送即可。
 import { BaseAdapter } from './base.mjs';

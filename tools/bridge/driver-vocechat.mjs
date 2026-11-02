@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // VoceChat 驱动：把 VoceChat 的 Bot API 收敛成通道协议需要的最小动作集。
 // 换 IM 只需要再写一个同签名的文件，bridge.mjs 不用动。
 //

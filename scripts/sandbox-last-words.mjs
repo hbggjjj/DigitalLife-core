@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 #!/usr/bin/env node
 // 销毁前给她一次说话的机会：一句问题，一次回答，可以拒绝，不追问。
 import fs from 'node:fs';

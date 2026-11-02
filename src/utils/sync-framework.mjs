@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // 把 README 里的「已知限制」和「最近更新」同步进她自己的认知文件。
 // 触发：service 启动时、以及 README 比 framework.md 新的时候。
 import fs from 'node:fs';

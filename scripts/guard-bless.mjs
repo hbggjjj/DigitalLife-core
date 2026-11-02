@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 #!/usr/bin/env node
 // 维护者按流程改完受保护文件后，显式声明新 hash（并记账）
 import fs from 'node:fs';

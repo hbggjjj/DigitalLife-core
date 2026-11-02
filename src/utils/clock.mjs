@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // 授时：不让她的时间只依赖手机系统时钟
 import fs from 'node:fs';
 

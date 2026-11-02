@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // 自测：用一个假 VoceChat + 一个假核心，验证桥接是否满足协议 §10 的四项。
 // 跑：node test-e2e.mjs
 import http from 'node:http';

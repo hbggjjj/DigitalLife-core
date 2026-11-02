@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // 通道基类：任何通道实现 sendText/sendImage/sendMeme/ping/inbound，
 // 就自动拥有"攒话补发"和"失败重试"。
 import fs from 'node:fs';

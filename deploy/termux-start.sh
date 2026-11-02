@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # 安卓/Termux 或任何没有 systemd 的机器：起服务 + 看门狗（每分钟检查，掉了就拉起）
 APP=/root/qqbot-v5
 export TZ=Asia/Shanghai LIFE_DIR=__MIKU_HOME__/life QQBOT_ROOT=$APP

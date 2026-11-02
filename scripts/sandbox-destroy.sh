@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # 销毁沙箱并记账（保留一份对话归档到 private_backups）
 set -e
 ROOT="$1"

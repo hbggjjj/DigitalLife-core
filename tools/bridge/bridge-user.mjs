@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // 通道协议 v1 的「你方」实现 —— 普通账号版
 // 对核心提供 /api/v1/send /api/v1/health /api/v1/media；对 IM 用轮询收消息。
 import http from 'node:http';
@@ -129,8 +130,13 @@ const server = http.createServer(async (req, res) => {
   if (p === '/api/v1/health') {
     const ok = await im.health();
     const clientOnline = clientAt > 0 && Date.now() - clientAt < 3 * 60 * 1000;
+    let name = '她';
+    try {
+      const cfg = JSON.parse(fs.readFileSync('__MIKU_ROOT__/bot/config.json', 'utf8'));
+      if (cfg.instanceName) name = String(cfg.instanceName).trim();
+    } catch {}
     return json(200, { ok: true, online: ok, queued: 0, lastSendOkAt, lastPollAt: lastPollOkAt,
-                       clientOnline, clientLastAt: clientAt, clientMid });
+                       clientOnline, clientLastAt: clientAt, clientMid, name });
   }
 
   if (p === '/api/v1/send' && req.method === 'POST') {

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // 云语音识别（阿里云智能语音 一句话识别）：给"没字幕的视频"补上"说了什么"
 // 隐私约定：音频只在本机切片、即时上传、用完即删；文字只进这一次的上下文，不写归档。
 import fs from 'node:fs';

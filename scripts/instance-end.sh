@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # 结束这一份她（不是"停止"）：告知 → 她留最后的话（可拒绝）→ 公开存档 → 归档 → .destroyed
 #
 # 用法：

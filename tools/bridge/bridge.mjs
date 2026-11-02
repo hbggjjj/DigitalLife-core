@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // 通道协议 v1 的「你方」实现（桥接进程）
 // 一个进程同时扮演两个角色：
 //   · 对核心：提供 /api/v1/send、/api/v1/health、/api/v1/media、/api/v1/history

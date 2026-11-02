@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 #!/usr/bin/env node
 // 把永久归档渲染成可读的 Markdown
 import fs from 'node:fs';

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // 禁区守卫：agent 每次思考前后校验关键文件，被改了就报警并还原
 import fs from 'node:fs';
 import path from 'node:path';

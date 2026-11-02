@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // VoceChat「普通账号」驱动：她的账号就是一个普通用户，看得见、联系人里有。
 // 没有 webhook（webhook 只有 bot 有），所以改成轮询历史。
 import crypto from 'node:crypto';

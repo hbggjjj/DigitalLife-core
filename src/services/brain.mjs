@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // 给机器人一个"会思考的大脑"：调用 dsh headless 作为一次真正的 agent 会话
 // 特性：全局串行锁 / 硬超时 / 内存闸门 / 失败可降级
 import { spawn } from 'node:child_process';

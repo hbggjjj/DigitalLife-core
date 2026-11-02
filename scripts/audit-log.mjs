@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 #!/usr/bin/env node
 // 防篡改审计：每条记录带 prev 哈希 + 自身哈希 + pid/boot_id
 import fs from 'node:fs';

@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # 轻量外部锚定：把审计链最新的 hash 写到她碰不到的地方（手机 /sdcard），一天一条
 # 不做 Merkle、不做签名、不引密钥——只是让"整体重写"留下痕迹
 set -e

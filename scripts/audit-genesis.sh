@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # 审计：这个人格文件从创世到现在，被外部改过没有？
 # 只报告，不阻断（她创世后自己写 SELF.md 是正常的，哈希变了不算错）。
 set -u

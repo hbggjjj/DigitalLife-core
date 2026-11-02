@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 #!/usr/bin/env node
 // 假 IM：联调用。50 行服务 + 一个能打字的页面。
 // 用法：

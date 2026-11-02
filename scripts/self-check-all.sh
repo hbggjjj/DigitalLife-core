@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # 一键自检：全部只读，不改任何东西。约 5–10 秒。
 set -u
 cd __MIKU_ROOT__ || exit 1

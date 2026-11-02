@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // 手机上弹一条系统通知（VoceChat App 没有 FCM，后台收不到提醒时的兜底）
 import fs from 'node:fs';
 import http from 'node:http';

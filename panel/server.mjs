@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // 数字生命控制面板：浏览器打开 http://127.0.0.1:7788
 import http from 'node:http';
 import fs from 'node:fs';

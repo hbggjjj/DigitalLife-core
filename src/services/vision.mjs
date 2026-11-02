@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // 视觉通道：把一张图变成一段文字描述。原图不留在记忆里，只留描述。
 import fs from 'node:fs';
 

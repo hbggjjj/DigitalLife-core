@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // 灵魂缓存：把 SELF / memory / mood 压成一份短文本，让快速回复不用每次读文件
 import fs from 'node:fs';
 import { date as clockDate, now as clockNow } from '../utils/clock.mjs';

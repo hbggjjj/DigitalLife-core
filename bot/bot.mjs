@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // 主动开口：不用定时器，用「冲动值」决定要不要说话
 import fs from 'node:fs';
 import dns from 'node:dns';

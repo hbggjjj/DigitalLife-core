@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # 恢复闸门：归档目录里有 .destroyed 的实例，只允许只读查看，不允许恢复成运行实例。
 # 用法：
 #   bash scripts/restore-guard.sh <归档目录>            检查（默认只读）

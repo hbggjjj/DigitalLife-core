@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // B 站扫码登录：拿 cookie（用于读 CC 字幕），跟 QQ 登录一样走二维码
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';

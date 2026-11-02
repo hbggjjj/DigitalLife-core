@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # 一张一张加表情包：选文件 → 选分类 → 写标签和描述。
 # 用法：bash deploy/meme-add.sh /path/to/图.jpg
 set -u

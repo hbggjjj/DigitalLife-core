@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // 「心智」：她唯一的权限是说话、记事、写日记、改心情、留话。
 // 没有 shell、没有文件系统访问——所有落盘动作都由我们替她执行（白名单）。
 import fs from 'node:fs';

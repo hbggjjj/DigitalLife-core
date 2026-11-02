@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # 回到某个快照（不带参数=最近一个）
 set -e
 ROOT=__MIKU_ROOT__

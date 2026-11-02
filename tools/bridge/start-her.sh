@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # 她的 VoceChat 通道（硬规则：只允许用她自己的账号登录）
 set -e
 IM_EMAIL="her@example.com"

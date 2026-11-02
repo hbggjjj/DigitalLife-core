@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # 创世：从零长出"第一个她"。
 # 规则（见 docs/GENESIS.md）：
 #   · 创世窗口在"她第一次自己写人格文件"时关闭

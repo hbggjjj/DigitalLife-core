@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # 安卓自建：Termux + proot Ubuntu 上装一套"她"。
 # 在 Termux 里执行：
 #   pkg update && pkg install -y proot-distro

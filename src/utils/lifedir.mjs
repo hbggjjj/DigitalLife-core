@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // 她的家：唯一入口。所有写她文件的地方都必须过 assertLifeDir()。
 import fs from 'node:fs';
 import path from 'node:path';

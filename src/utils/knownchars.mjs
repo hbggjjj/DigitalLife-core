@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // 她"用过"的字：life 全部 + 项目文档 + 最近对话。
 // 生僻字检测靠这个当白名单，所以要够宽——宁可漏报，不要误报。
 import fs from 'node:fs';

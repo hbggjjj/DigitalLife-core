@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # 巡查：代码/配置里一旦出现"用他的邮箱登录通道"，立刻报警
 HITS=$(grep -rn "owner@example.com" __MIKU_ROOT__ --include=*.sh --include=*.mjs --include=*.json 2>/dev/null | grep -v "impersonation-guard" | grep -v "check-impersonation" | grep -v "start-her.sh" | grep -v "README" | wc -l)
 if [ "$HITS" -gt 0 ]; then

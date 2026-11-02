@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // 她的 B 站眼睛：只取文字（标题/简介/UP/播放量），不下视频、不看画面
 import fs from 'node:fs';
 import dns from 'node:dns';

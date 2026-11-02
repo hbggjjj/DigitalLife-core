@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // 让她知道自己此刻在哪、是什么状态
 import fs from 'node:fs';
 import os from 'node:os';

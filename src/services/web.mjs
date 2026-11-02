@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // 她的"眼睛"：由我们替她上网取信息，她本身不碰网络。
 // 只用公开 RSS / 搜索结果，限时、限量、去标签。
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';

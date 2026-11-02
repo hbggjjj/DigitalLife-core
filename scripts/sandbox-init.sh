@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # 建一个干净沙箱：独立目录 + .sandbox 标记 + 建账
 set -e
 NAME="${1:-shadow-$(date +%m%d%H%M)}"

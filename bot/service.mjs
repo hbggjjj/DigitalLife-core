@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // 自动回复：快通道秒回 + 分段连发 + 打字延迟 + 偶尔已读不回
 import http from 'node:http';
 import fs from 'node:fs';
@@ -601,7 +602,16 @@ async function generateReplyInner(historyLines, userText, imagePath = null, chan
       : (channel === 'web' ? '他·网页' : '他·QQ')
         + (flags.agent ? '·代发' : '')
         + (flags.resend ? '·补发' : '');
-  const result = await mindReply(historyLines, userText, buildSelfStats() + sleepHint + clientPresenceLine() + oneMessageHint(), { noBrowse: SLEEP_RE.test(userText), imagePath, channelNote, fromTag });
+  let hidden = '';
+  try {
+    const ns = recentNeeds(12, 2);
+    if (ns.length) {
+      hidden = '\n\n【你没说出口的（只给你自己看，不必照做）】' +
+        ns.map((n) => n.needs.join('；')).join('；') +
+        '\n这些是你自己心里写下的，不是他提的。说与不说、怎么提，都由你。';
+    }
+  } catch {}
+  const result = await mindReply(historyLines + hidden, userText, buildSelfStats() + sleepHint + clientPresenceLine() + oneMessageHint(), { noBrowse: SLEEP_RE.test(userText), imagePath, channelNote, fromTag });
   const segs = pickSay(result);
   const applied = applyActions(result);
   // 她可以在任何一次回复里改自己的"下次醒来"——不用等下一次生活循环
@@ -795,19 +805,8 @@ async function handleMessage(ev) {
 
 
   const state = loadState();
-  const hist = (state.history || []).slice(-12);
-  let lines = hist.map((h) => {
-    // 每条都标清楚：谁说的、从哪条道来的
-    const who = h.dir === 'out' ? '我' : '你';
-    let tag = h.dir === 'out'
-      ? (h.via === 'web' ? '我·网页' : '我·QQ')
-      : (h.via === 'web' ? '他·网页' : '他·QQ');
-    if (h.agent) tag += '·维护者代发（不是他本人）';
-    if (h.resend) tag += '·补发（当时被系统拦下）';
-    if (h.corrected) tag += '·原话有错别字';
-    if (h.sys) tag = '系统';
-    return `[${tag}] ${who}: ${h.text}`;
-  }).join('\n');
+  const hist = (state.history || []).slice(-120);
+  const lines = buildContext(hist, { maxTurns: 4, maxLines: 16 }).join('\n');
   // 上一轮她要求翻归档：这一轮把原文调出来
   try {
     const pr = state.pendingRecall;

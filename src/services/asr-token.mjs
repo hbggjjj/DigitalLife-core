@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // 阿里云 Token 自动续期（NLS CreateToken，RPC 签名）
 // 只在本机内存 + 私有 config 里存 token；AK/SK 不进日志、不进开源包。
 import crypto from 'node:crypto';
