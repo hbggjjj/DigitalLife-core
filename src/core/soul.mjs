@@ -40,8 +40,15 @@ export function rebuild(force = false) {
   const self = trim(read('SELF.md'), 1100);
   const know = trim(read('self-knowledge.md'), 1200);
   const memRaw = read('memory.md');
-  const { core, recent } = rankMemory(memRaw.split('\n'));
-  try { bumpHits([...core, ...recent]); } catch {}
+  const showSrc = (t) => String(t)
+    .replace(/\s*\[src:chat\]/g, '')
+    .replace(/\[src:web\]/g, '（我在网上看到的）')
+    .replace(/\[src:self\]/g, '（我自己想到的）')
+    .replace(/\[src:\w+\]/g, '');
+  const { core: core0, recent: recent0 } = rankMemory(memRaw.split('\n'));
+  const core = core0.map((x) => ({ ...x, text: showSrc(x.text) }));
+  const recent = recent0.map((x) => ({ ...x, text: showSrc(x.text) }));
+  try { bumpHits([...core0, ...recent0]); } catch {}   // 用原始文本匹配，渲染后再加标记就对不上了
   const fmt = (arr) => arr.map((x) => `- ${x.date ? x.date + '：' : ''}${x.text}`).join('\n');
   const mem = trim(
     (core.length ? '【我一直记着的】\n' + fmt(core) + '\n\n' : '')

@@ -22,18 +22,19 @@ export function weightOf(text, at = 0) {
 
 /** 解析 "- 2026-11-05：内容 [h3]" 这种行（[hN] = 被想起过几次，老条目没有就是 0） */
 export function parseMemoryLine(line) {
-  const m = String(line).match(/^-\s*(\d{4}-\d{2}-\d{2})?[：:]?\s*([\s\S]*?)\s*(?:\[h(\d+)\])?\s*$/);
+  const m = String(line).match(/^-\s*(\d{4}-\d{2}-\d{2})?[：:]?\s*([\s\S]*?)\s*(?:\[src:(\w+)\])?\s*(?:\[h(\d+)\])?\s*$/);
   if (!m) return null;
   const date = m[1] || '';
   const text = (m[2] || '').trim();
   if (!text) return null;
-  const hits = m[3] ? Number(m[3]) : 0;
+  const src = m[3] || 'chat';
+  const hits = m[4] ? Number(m[4]) : 0;
   const at = date ? new Date(date + 'T12:00:00+08:00').getTime() : 0;
   const w = weightOf(text, at);
   // 强度 = 内容重要性 × 被想起的次数（对数）÷ 时间衰减；衰减可逆
   const days = at ? (Date.now() - at) / 86400000 : 0;
   const strength = (w * (1 + Math.log1p(hits))) / (1 + days / 30);
-  return { date, text, at, w, hits, strength, raw: line };
+  return { date, text, at, w, hits, strength, src, raw: line };
 }
 
 export function rankMemory(lines, { coreMin = 4, coreLimit = 18 } = {}) {
@@ -96,7 +97,12 @@ export function bumpHits(items) {
       const m = parseMemoryLine(lines[i]);
       if (!m || !want.has(m.text)) continue;
       const h = m.hits + 1;
-      lines[i] = lines[i].replace(/\s*\[h\d+\]\s*$/, '') + ` [h${h}]`;
+      // 统一成：正文 [src:x] [hN]（先清干净再追加，避免出现两个 [hN]）
+      const body = lines[i]
+        .replace(/\s*\[h\d+\]/g, '')
+        .replace(/\s*\[src:\w+\]/g, '')
+        .trimEnd();
+      lines[i] = `${body} [src:${m.src}] [h${h}]`;
       changed++;
     }
     if (changed) fs.writeFileSync(p2, lines.join('\n'));

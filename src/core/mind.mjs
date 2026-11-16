@@ -339,6 +339,8 @@ function logRaw(kind, raw, messages) {
   } catch {}
 }
 
+let _netUsed = false;   // 这一轮是否用过网上的材料（用于给记忆标来源）
+
 async function run(messages, maxTokens, opts = {}) {
   const raw1 = await call(messages, maxTokens);
   logRaw(opts.kind || 'reply', raw1);
@@ -381,6 +383,7 @@ async function run(messages, maxTokens, opts = {}) {
     try { results = await webSearch(q, 5); }
     catch (e) { netFail = true; logErr('search', e, { q }); warnOnce('搜索失败，这条没查到东西：' + e.message, 'warn'); }
     const material = (weatherText ? '【天气】' + weatherText + '\n\n' : '') + fmtWeb(results);
+    _netUsed = true;
     const second = [
       ...messages,
       { role: 'assistant', content: JSON.stringify({ search: q }) },
@@ -423,6 +426,7 @@ async function run(messages, maxTokens, opts = {}) {
     try {
       emit('life', 'bili', (/热门|首页/.test(bq) ? '她刷了 B 站热门：' : '她搜了 B 站「' + bq + '」：') + (list[0] ? list[0].title : ''));
     } catch {}
+    _netUsed = true;
     const second = [
       ...messages,
       { role: 'assistant', content: JSON.stringify({ bili: bq }) },
@@ -908,7 +912,9 @@ export function auditSchema() {
   };
 }
 
-export function applyActions(result) {
+export function applyActions(result, opts = {}) {
+  const src = opts.src || (_netUsed ? 'web' : 'chat');
+  _netUsed = false;
   const done = [];
   try { assertLifeDir(LIFE); } catch (e) { console.error(e.message); return ['拒绝写入：' + e.message]; }
   // 核对结果：确认记 ok，否认记 no（并且留痕，她自己看得见）
@@ -1023,7 +1029,7 @@ export function applyActions(result) {
               linesArr[simIdx] = linesArr[simIdx].replace(/^- /, '- [superseded] ');
               done.push('旧说法标成 superseded');
             }
-            linesArr.push(`- ${today()}：${clean}`);
+            linesArr.push(`- ${today()}：${clean} [src:${src}]`);
             try {
               fs.appendFileSync(path.join(LIFE, 'memory.log'), JSON.stringify({
                 at: Date.now(), op: simIdx >= 0 ? 'supersede+add' : 'add', text: clean, prev: simIdx >= 0 ? linesArr[simIdx] : null,
