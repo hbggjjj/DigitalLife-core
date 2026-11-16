@@ -40,14 +40,12 @@ export function assertNotOwnerUid(uid, where = '') {
   return true;
 }
 
-/** 只允许她自己的账号作为发送方。部署时用 HER_ACCOUNT 指定；未设置则跳过校验。 */
+/** 只允许她自己的账号作为发送方 */
 export function assertHerAccount(email) {
-  const want = String(process.env.HER_ACCOUNT || '').trim().toLowerCase();
   const e = String(email || '').trim().toLowerCase();
-  if (!want) { logRefusal('未设置 HER_ACCOUNT，跳过发送方账号校验：' + (e || '(空)')); return true; }
-  if (e !== want) {
+  if (e !== '<她的QQ>@qq.com') {
     logRefusal('发送方不是她自己的账号：' + (e || '(空)'));
-    throw new ImpersonationError('发送方必须是 HER_ACCOUNT 指定的账号（' + want + '）');
+    throw new ImpersonationError('发送方必须是她的账号（<她的QQ>@qq.com）');
   }
   return true;
 }

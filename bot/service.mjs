@@ -737,6 +737,38 @@ function proactiveTarget() {
   } catch { return String((cfg.target || {}).id || ''); }
 }
 
+
+// 并行期：不管主链走 QQ 还是自建 IM，同一句都镜像进新通道（7790）
+function mirrorToChannel(text) {
+  try {
+    const cu = process.env.CHANNEL_URL;
+    const ct = process.env.CHANNEL_TOKEN || '';
+    if (!cu || !text) return;
+    fetch(`${cu.replace(/\/$/, '')}/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(ct ? { 'X-Channel-Token': ct } : {}) },
+      body: JSON.stringify({ text }),
+      signal: AbortSignal.timeout(4000),
+    }).catch(() => {});
+  } catch {}
+}
+
+
+// 他经别的通道（QQ / VoceChat）说的话，也记一份进新通道，保持两边同一部历史
+function mirrorInboundToChannel(text) {
+  try {
+    const cu = process.env.CHANNEL_URL;
+    const ct = process.env.CHANNEL_TOKEN || '';
+    if (!cu || !text) return;
+    fetch(`${cu.replace(/\/$/, '')}/mirror`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(ct ? { 'X-Channel-Token': ct } : {}) },
+      body: JSON.stringify({ dir: 'in', text, at: Date.now() }),
+      signal: AbortSignal.timeout(4000),
+    }).catch(() => {});
+  } catch {}
+}
+
 async function sendSegments(uid, segments) {
   if (process.env.SANDBOX === '1') {           // 沙箱里绝不真发出去
     for (const sg of segments) log(`[沙箱] 不发送：${sg.slice(0, 40)}`);
@@ -755,6 +787,15 @@ async function sendSegments(uid, segments) {
         // 用基类的 send：自带 3 次重试 + 失败进补发队列
         await ad.send('text', { uid: 'user-1', to: (cfg.selfim && cfg.selfim.to) || 'user-1', text: seg });
         log(`发到自建 IM 第${i + 1}/${segments.length}段: ${seg}`);
+        // 并行期镜像：同一句也推进新通道（7790），不阻塞、失败不影响主链路
+        try {
+          const cu = process.env.CHANNEL_URL;
+          const ct = process.env.CHANNEL_TOKEN || '';
+          if (cu) fetch(`${cu.replace(/\/$/, '')}/push`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json', ...(ct ? { 'X-Channel-Token': ct } : {}) },
+            body: JSON.stringify({ text: seg, mid: `seg${i + 1}` }), signal: AbortSignal.timeout(4000),
+          }).catch(() => {});
+        } catch {}
         // 他手机上的客户端此刻在不在线：不在就攒着，等她/他知道
         try {
           const hr = await fetch('http://127.0.0.1:7791/api/v1/health', { signal: AbortSignal.timeout(3000) });
@@ -771,6 +812,7 @@ async function sendSegments(uid, segments) {
             if ((Date.now() - lastIn) / 60000 > 2) phoneNotify(instanceName(), seg);
           }
         } catch {}
+        mirrorToChannel(seg);
         emit('reply', 'out_msg', seg, { uid, via, seg: i + 1, total: segments.length });
       } catch (e) {
         log('自建 IM 发送失败：' + e.message);
@@ -781,6 +823,7 @@ async function sendSegments(uid, segments) {
     }
     await sendWithRetry('send_private_msg', { user_id: Number(uid), message: [{ type: 'text', data: { text: seg } }] });
     log(`发出第${i + 1}/${segments.length}段: ${seg}`);
+    mirrorToChannel(seg);
     emit('reply', 'out_msg', seg, { uid, via: 'qq', seg: i + 1, total: segments.length });
     if (i < segments.length - 1) await sleep(500 + Math.random() * 1200);
   }
@@ -829,6 +872,7 @@ async function handleMessage(ev) {
   if (!text && !lookPath) return;      // 纯图（已经能看）不再被吞
   if (!text) text = '[图片]';          // 给她一个占位，她知道这是图
   log(`收到 ${uid}: ${text}`);
+  if (uid !== 'selfim') mirrorInboundToChannel(text);
   emit('reply', 'in_msg', text, { uid });
   if (isResend) text = '（补发：这条当时被系统拦下了，你现在才看到）' + text;
   if (!isDebug) {

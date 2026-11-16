@@ -940,4 +940,7 @@ bash scripts/sandbox-destroy.sh <目录> [--no-last-words]
 
 **整套系统——通道、标记、核对、归档、审计、申请——都是为了这一句。**
 
-> 仓库里的默认路径 `/var/lib/digitallife` 只是占位；部署时用 `LIFE_DIR` 指定她真正的家目录，用 `QQBOT_ROOT` 指定代码根目录。
+### 双人通道（自建 IM）
+
+不依赖 VoceChat：单独一个进程（7790），只有推送 / 发送 / 增量拉取 / 已读四个动作，
+消息就是 append-only 的 `messages.jsonl`。协议与部署见 [docs/CHANNEL.md](docs/CHANNEL.md)。
