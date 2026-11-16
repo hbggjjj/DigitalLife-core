@@ -32,7 +32,16 @@ function load() {
 load();
 let seq = cache.length ? cache[cache.length - 1].id : 0;
 
-// 同一条话可能从多条链路进来（QQ / 自建 / 镜像）：3 秒内同方向同文本只收一次
+// 去重：优先用来源消息 id（QQ msg_id / VoceChat mid / clientMsgId），没有 id 才退回文本比对
+const seenIds = new Map();   // srcId -> id
+function isDupById(srcId) {
+  if (!srcId) return null;
+  const id = seenIds.get(String(srcId));
+  if (!id) return null;
+  return cache.find((m) => m.id === id) || null;
+}
+
+// 兜底：3 秒内同方向同文本（没有来源 id 的多链路镜像）
 function isDup(dir, text) {
   const now = Date.now();
   for (let i = cache.length - 1; i >= 0 && i > cache.length - 12; i--) {
@@ -44,12 +53,15 @@ function isDup(dir, text) {
 }
 
 function append(rec) {
+  const bySrc = isDupById(rec.srcId);
+  if (bySrc) return bySrc;
   const dup = isDup(rec.dir, rec.text);
-  if (dup) return dup;
+  if (dup) { if (rec.srcId) seenIds.set(String(rec.srcId), dup.id); return dup; }
   seq += 1;
   const item = { id: seq, at: Date.now(), ...rec };
   fs.appendFileSync(MSG, JSON.stringify(item) + '\n');
   cache.push(item);
+  if (item.srcId) seenIds.set(String(item.srcId), item.id);
   return item;
 }
 function readState() {
@@ -82,6 +94,13 @@ async function forward(text, origin = 'user', images = []) {
 
 // —— 下行：bot 调这个把她的话推进来
 function push({ text, images = [], mid }) {
+  images = (images || []).map((x) => {
+    const raw = typeof x === 'string' ? x : (x && (x.url || x.path)) || '';
+    if (!raw) return null;
+    if (raw.startsWith('/media/')) return { name: path.basename(raw), path: path.join(MEDIA, path.basename(raw)) };
+    if (raw.startsWith('/')) return { name: path.basename(raw), path: raw };
+    return null;
+  }).filter(Boolean);
   const item = append({ dir: 'out', text: String(text || ''), images, mid: mid || null });
   broadcast(item);
   return item;
@@ -117,7 +136,12 @@ const server = http.createServer(async (req, res) => {
   // 增量拉历史：?since=<id>
   if (p === '/history') {
     const since = Number(u.searchParams.get('since') || 0);
-    return json(res, { ok: true, messages: cache.filter((m) => m.id > since).slice(-200), lastRead: readState().lastRead });
+    const limit = Math.min(500, Math.max(1, Number(u.searchParams.get('limit') || 200)));
+    const rest = cache.filter((m) => m.id > since);
+    const page = rest.slice(0, limit);
+    return json(res, {
+      ok: true, messages: page, hasMore: rest.length > page.length, lastRead: readState().lastRead,
+    });
   }
 
   // 已读回执
@@ -136,17 +160,21 @@ const server = http.createServer(async (req, res) => {
       const buf = Buffer.concat(chunks);
       if (!buf.length) return json(res, { ok: false, message: '空文件' }, 400);
       if (buf.length > 12 * 1024 * 1024) return json(res, { ok: false, message: '图太大（>12MB）' }, 413);
+      const d = new Date();
+      const bucket = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`;
+      fs.mkdirSync(path.join(MEDIA, bucket), { recursive: true });
       const name = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}.${ext}`;
-      fs.writeFileSync(path.join(MEDIA, name), buf);
-      return json(res, { ok: true, name, path: path.join(MEDIA, name), url: '/media/' + name });
+      const rel = bucket + '/' + name;
+      fs.writeFileSync(path.join(MEDIA, rel), buf);
+      return json(res, { ok: true, name: rel, path: path.join(MEDIA, rel), url: '/media/' + rel });
     });
     return;
   }
 
   // 取图
   if (p.startsWith('/media/')) {
-    const name = path.basename(p.slice('/media/'.length));
-    const f = path.join(MEDIA, name);
+    const rel = p.slice('/media/'.length).split('/').filter(Boolean).map((x) => path.basename(x)).join('/');
+    const f = path.join(MEDIA, rel);
     if (!fs.existsSync(f)) return json(res, { ok: false, message: '没有这张图' }, 404);
     res.writeHead(200, { 'Content-Type': name.endsWith('.png') ? 'image/png' : 'image/jpeg', 'Cache-Control': 'max-age=86400' });
     return res.end(fs.readFileSync(f));
@@ -158,7 +186,13 @@ const server = http.createServer(async (req, res) => {
     req.on('end', async () => {
       let d = {}; try { d = JSON.parse(b); } catch {}
       const text = String(d.text || '').trim();
-      const images = Array.isArray(d.images) ? d.images.map((x) => (typeof x === 'string' ? { path: x } : x)).filter((x) => x && x.path) : [];
+      const norm = (x) => {
+        const raw = typeof x === 'string' ? x : (x && (x.path || x.url)) || '';
+        if (!raw) return null;
+        if (raw.startsWith('/media/')) return { path: path.join(MEDIA, path.basename(raw)), name: path.basename(raw) };
+        return { path: raw, name: path.basename(raw) };
+      };
+      const images = (Array.isArray(d.images) ? d.images : []).map(norm).filter(Boolean);
       if (!text && !images.length) return json(res, { ok: false, message: '空消息' }, 400);
       const item = append({ dir: 'in', text, images });
       broadcast(item);
@@ -206,7 +240,23 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (p === '/health') return json(res, { ok: true, messages: cache.length, lastId: seq, clients: clients.size });
+  if (p === '/health') {
+    let mediaCount = 0, mediaBytes = 0;
+    try {
+      const walk = (dir) => {
+        for (const it of fs.readdirSync(dir, { withFileTypes: true })) {
+          const fp = path.join(dir, it.name);
+          if (it.isDirectory()) walk(fp);
+          else { mediaCount++; try { mediaBytes += fs.statSync(fp).size; } catch {} }
+        }
+      };
+      walk(MEDIA);
+    } catch {}
+    return json(res, {
+      ok: true, messages: cache.length, lastId: seq, clients: clients.size,
+      media: { count: mediaCount, mb: Math.round(mediaBytes / 1048576) },
+    });
+  }
 
   // —— 兼容 bot 现有 selfim 适配器的 /api/v1/*（这样她自己里也能直接发进来）
   if (p === '/api/v1/health') {

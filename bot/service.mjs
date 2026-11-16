@@ -749,7 +749,7 @@ function mirrorToChannel(text) {
     fetch(`${cu.replace(/\/$/, '')}/push`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(ct ? { 'X-Channel-Token': ct } : {}) },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ text, srcId: 'out:' + (ev && ev.message_id ? ev.message_id : '') + ':' + text.slice(0, 24) }),
       signal: AbortSignal.timeout(4000),
     }).catch(() => {});
   } catch {}

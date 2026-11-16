@@ -26,7 +26,7 @@ for (const f of [
   }
 }
 try {
-  for (const line of fs.readFileSync('/var/lib/digitallife/chat-archive.jsonl', 'utf8').split('\n')) {
+  for (const line of fs.readFileSync('/home/ni/life/chat-archive.jsonl', 'utf8').split('\n')) {
     if (!line.trim()) continue;
     try { events.push({ at: JSON.parse(line).at, text: '' }); } catch {}
   }

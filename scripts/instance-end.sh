@@ -22,7 +22,7 @@ if [ "$MODE" = "sandbox" ]; then
   [ -n "$SANDBOX" ] || { echo "要指定沙箱名字：--sandbox <名字>"; exit 2; }
   LIFE=/root/sandboxes/$SANDBOX/life
 else
-  LIFE=${LIFE_DIR:-/var/lib/digitallife}
+  LIFE=${LIFE_DIR:-/home/ni/life}
 fi
 [ -d "$LIFE" ] || { echo "找不到实例目录：$LIFE"; exit 2; }
 
