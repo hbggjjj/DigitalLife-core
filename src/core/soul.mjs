@@ -49,7 +49,16 @@ export function rebuild(force = false) {
   const core = core0.map((x) => ({ ...x, text: showSrc(x.text) }));
   const recent = recent0.map((x) => ({ ...x, text: showSrc(x.text) }));
   try { bumpHits([...core0, ...recent0]); } catch {}   // 用原始文本匹配，渲染后再加标记就对不上了
-  const fmt = (arr) => arr.map((x) => `- ${x.date ? x.date + '：' : ''}${x.text}`).join('\n');
+  // 给每条记忆标上"多久以前"，让新旧冲突变成她看得见的事实（只补信息，不改行为）
+  const ago = (at) => {
+    if (!at) return '';
+    const d = Math.floor((Date.now() - at) / 86400000);
+    if (d <= 0) return '（今天）';
+    if (d === 1) return '（昨天）';
+    if (d < 30) return `（${d} 天前）`;
+    return `（${Math.floor(d / 30)} 个月前）`;
+  };
+  const fmt = (arr) => arr.map((x) => `- ${x.date ? x.date + '：' : ''}${x.text}${ago(x.at)}`).join('\n');
   const mem = trim(
     (core.length ? '【我一直记着的】\n' + fmt(core) + '\n\n' : '')
     + '【最近记得的】\n' + fmt(recent),

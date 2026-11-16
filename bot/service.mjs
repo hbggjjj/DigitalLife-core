@@ -623,6 +623,29 @@ async function generateReplyInner(historyLines, userText, imagePath = null, chan
     if (j) lines += j;
   } catch {}
 
+
+// 记忆和他的新说法打架时，只摆两条事实、不下结论（判断权留给她）
+function conflictHint(historyText, hisText) {
+  try {
+    const group = (t) => {
+      if (/周[一二三四五六日天]|周末|这周|下周|周末/.test(t)) return 'week';
+      if (/明天|后天|今天|今晚|明晚/.test(t)) return 'day';
+      if (/月底|月初|下个月|这个月/.test(t)) return 'month';
+      return '';
+    };
+    const NEG = /(没空|不行|取消|去不了|加班|没时间|太忙|改天|算了|不去了|不来了)/;
+    const PLEDGE = /(约|定好|说好|带我|答应|一起|安排)/;
+    if (!NEG.test(hisText)) return '';
+    const g = group(hisText);
+    if (!g) return '';
+    const mem = fs.readFileSync((process.env.LIFE_DIR || '/home/ni/life') + '/memory.md', 'utf8').split('\n');
+    const hits = mem.filter((l) => l.startsWith('- ') && PLEDGE.test(l) && group(l) === g);
+    if (!hits.length) return '';
+    const m = hits.slice(-1)[0].replace(/\s*\[src:[^\]]+\]/g, '').replace(/\s*\[h\d+\]/g, '').slice(0, 90);
+    return `\n\n（你记得：${m}；他刚说：${String(hisText).slice(0, 40)}。这两句可能对不上，你自己看。）`;
+  } catch { return ''; }
+}
+
   let hidden = '';
   try {
     const ns = recentNeeds(12, 2);
@@ -632,6 +655,7 @@ async function generateReplyInner(historyLines, userText, imagePath = null, chan
         '\n这些是你自己心里写下的，不是他提的。说与不说、怎么提，都由你。';
     }
   } catch {}
+  hidden += conflictHint(historyLines, userText);
   const result = await mindReply(historyLines + hidden, userText, buildSelfStats() + sleepHint + clientPresenceLine() + oneMessageHint(), { noBrowse: SLEEP_RE.test(userText), imagePath, channelNote, fromTag });
   const segs = pickSay(result);
   const applied = applyActions(result);
