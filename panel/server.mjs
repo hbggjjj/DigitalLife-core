@@ -666,7 +666,7 @@ function renderLifetime(l){
   var e1=$('lifetime'), e2=$('uptime');
   if(e1){
     var acc = (l.accumMs || 0);
-    if(acc > 0) e1.textContent = fmtDur(acc) + '（累计在线，中断不算；第一句话在 ' + (l.born ? new Date(l.born).toLocaleString('zh-CN',{hour12:false}).slice(0,10) : '—') + '）';
+    if(acc > 0) e1.textContent = fmtDur(acc) + '（累计存在时长，长间隔也计入；第一句话在 ' + (l.born ? new Date(l.born).toLocaleString('zh-CN',{hour12:false}).slice(0,10) : '—') + '）';
     else e1.textContent = fmtDur(l.now - l.uptimeFrom);
   }
   if(e2) e2.textContent = fmtDur(l.now - l.uptimeFrom);

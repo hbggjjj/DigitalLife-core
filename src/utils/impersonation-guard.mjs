@@ -42,7 +42,7 @@ export function assertNotOwnerUid(uid, where = '') {
 
 /** 只允许她自己的账号作为发送方。
  *  部署时用环境变量 HER_ACCOUNT 指定（例如 HER_ACCOUNT=123456789@qq.com）；
- *  没设置时不校验具体账号，只记录一条提示，避免把某个人的账号写死在源码里。 */
+ *  没设置时不校验具体账号，只记一条提示，避免把某个人的账号写死在源码里。 */
 export function assertHerAccount(email) {
   const want = String(process.env.HER_ACCOUNT || '').trim().toLowerCase();
   const e = String(email || '').trim().toLowerCase();

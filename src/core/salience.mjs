@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // 记忆重量：没有显式标记时，按文字里的情绪/关系信号估一个 W1-W5。
 // 只用于"哪些更容易被想起"，不删任何条目。
+import fs from 'node:fs';
 import { trace as traceCall } from '../utils/trace.mjs';
 const STRONG = ['喜欢', '爱', '舍不得', '塌了一小块', '记住', '永远', '谢谢', '对不起', '哭', '怕', '难受', '心疼', '重要', '第一次', '答应', '承诺', '走了', '不在'];
 const MID = ['有点', '闷', '凉', '空', '惦记', '想', '等', '吵', '气', '笑', '安心'];
@@ -19,22 +20,30 @@ export function weightOf(text, at = 0) {
   return Math.max(1, Math.min(5, Math.round(w)));
 }
 
-/** 解析 "- 2026-11-05：内容" 这种行 */
+/** 解析 "- 2026-11-05：内容 [h3]" 这种行（[hN] = 被想起过几次，老条目没有就是 0） */
 export function parseMemoryLine(line) {
-  const m = String(line).match(/^-\s*(\d{4}-\d{2}-\d{2})?[：:]?\s*(.*)$/);
+  const m = String(line).match(/^-\s*(\d{4}-\d{2}-\d{2})?[：:]?\s*([\s\S]*?)\s*(?:\[h(\d+)\])?\s*$/);
   if (!m) return null;
   const date = m[1] || '';
   const text = (m[2] || '').trim();
   if (!text) return null;
+  const hits = m[3] ? Number(m[3]) : 0;
   const at = date ? new Date(date + 'T12:00:00+08:00').getTime() : 0;
-  return { date, text, at, w: weightOf(text, at) };
+  const w = weightOf(text, at);
+  // 强度 = 内容重要性 × 被想起的次数（对数）÷ 时间衰减；衰减可逆
+  const days = at ? (Date.now() - at) / 86400000 : 0;
+  const strength = (w * (1 + Math.log1p(hits))) / (1 + days / 30);
+  return { date, text, at, w, hits, strength, raw: line };
 }
 
 export function rankMemory(lines, { coreMin = 4, coreLimit = 18 } = {}) {
   const items = lines.map(parseMemoryLine).filter(Boolean);
   const core = items.filter((x) => x.w >= coreMin).sort((a, b) => b.w - a.w || b.at - a.at).slice(0, coreLimit);
   const coreSet = new Set(core.map((x) => x.text));
-  const recent = items.filter((x) => !coreSet.has(x.text)).slice(-20);
+  const recent = items
+    .filter((x) => !coreSet.has(x.text))
+    .sort((a, b) => b.strength - a.strength || b.at - a.at)
+    .slice(0, 20);
   return { core, recent, items };
 }
 
@@ -45,8 +54,8 @@ export function rankMemory(lines, { coreMin = 4, coreLimit = 18 } = {}) {
 export async function rerank(query, candidates) {
   if (!candidates || candidates.length < 3) return null;
   try {
-    const fs = await import('node:fs');
-    const cfg = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/config.json', 'utf8'));
+    const root = process.env.QQBOT_ROOT || process.cwd();
+    const cfg = JSON.parse(fs.readFileSync(`${root}/bot/config.json`, 'utf8'));
     const key = process.env.DEEPSEEK_API_KEY || (cfg.deepseek && cfg.deepseek.apiKey);
     if (!key) return null;
     const list = candidates.map((c, i) => `${i + 1}. ${String(c.text).slice(0, 80)}`).join('\n');
@@ -72,4 +81,25 @@ export async function rerank(query, candidates) {
     if (!Array.isArray(pick) || !pick.length) return null;
     return pick.map((n) => candidates[Number(n) - 1]).filter(Boolean);
   } catch { return null; }
+}
+
+/** 被注进上下文 = 被想起一次：把 memory.md 里对应行的 [hN] 加一。
+ *  只改行尾标记，不动正文；写失败就跳过（记忆不能因为计数坏了而丢）。 */
+export function bumpHits(items) {
+  if (!items || !items.length) return 0;
+  try {
+    const p2 = (process.env.LIFE_DIR || '/home/ni/life') + '/memory.md';
+    const lines = fs.readFileSync(p2, 'utf8').split('\n');
+    const want = new Map(items.map((x) => [String(x.text).trim(), x]));
+    let changed = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const m = parseMemoryLine(lines[i]);
+      if (!m || !want.has(m.text)) continue;
+      const h = m.hits + 1;
+      lines[i] = lines[i].replace(/\s*\[h\d+\]\s*$/, '') + ` [h${h}]`;
+      changed++;
+    }
+    if (changed) fs.writeFileSync(p2, lines.join('\n'));
+    return changed;
+  } catch { return 0; }
 }

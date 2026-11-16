@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // 灵魂缓存：把 SELF / memory / mood 压成一份短文本，让快速回复不用每次读文件
 import fs from 'node:fs';
-import { rankMemory } from './salience.mjs';
+import { rankMemory, bumpHits } from './salience.mjs';
 import { date as clockDate, now as clockNow } from '../utils/clock.mjs';
 import { brief as errBrief } from '../utils/errlog.mjs';
 import { emit } from '../utils/events.mjs';
@@ -41,6 +41,7 @@ export function rebuild(force = false) {
   const know = trim(read('self-knowledge.md'), 1200);
   const memRaw = read('memory.md');
   const { core, recent } = rankMemory(memRaw.split('\n'));
+  try { bumpHits([...core, ...recent]); } catch {}
   const fmt = (arr) => arr.map((x) => `- ${x.date ? x.date + '：' : ''}${x.text}`).join('\n');
   const mem = trim(
     (core.length ? '【我一直记着的】\n' + fmt(core) + '\n\n' : '')
