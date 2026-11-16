@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
 // 防止「以他本人的名义」发消息。
 // 这条是硬规则，不是提醒：任何通道、任何脚本，一旦用他本人账号登录或往他的身份上写消息，
 // 立刻抛错并记账，不做降级、不做"只此一次"。
@@ -6,7 +5,7 @@ import fs from 'node:fs';
 
 // 他本人在 VoceChat 的 uid 与邮箱（唯一真身）
 export const OWNER_UID_VOCECHAT = 1;
-export const OWNER_EMAIL = 'owner@example.com';
+export const OWNER_EMAIL = '2151764793@qq.com';
 export const HER_UID_VOCECHAT = 3;
 
 export class ImpersonationError extends Error {
@@ -18,8 +17,8 @@ export class ImpersonationError extends Error {
 
 function logRefusal(what) {
   const line = `[${new Date().toISOString()}] 拦截冒充：${what}\n`;
-  try { fs.appendFileSync('__MIKU_ROOT__/bot/impersonation-blocks.log', line); } catch {}
-  try { fs.appendFileSync('__MIKU_HOME__/others-edits.md', `| ${new Date().toLocaleString('zh-CN', { hour12: false })} | 拦截一次冒充：${what} | 硬规则 | 禁止以他本人名义发消息 |\n`); } catch {}
+  try { fs.appendFileSync('/root/qqbot-v5/bot/impersonation-blocks.log', line); } catch {}
+  try { fs.appendFileSync('/home/ni/life/others-edits.md', `| ${new Date().toLocaleString('zh-CN', { hour12: false })} | 拦截一次冒充：${what} | 硬规则 | 禁止以他本人名义发消息 |\n`); } catch {}
 }
 
 /** 任何"用他账号登录"的地方都必须先过这一关 */
@@ -41,12 +40,19 @@ export function assertNotOwnerUid(uid, where = '') {
   return true;
 }
 
-/** 只允许她自己的账号作为发送方 */
+/** 只允许她自己的账号作为发送方。
+ *  部署时用环境变量 HER_ACCOUNT 指定（例如 HER_ACCOUNT=123456789@qq.com）；
+ *  没设置时不校验具体账号，只记录一条提示，避免把某个人的账号写死在源码里。 */
 export function assertHerAccount(email) {
+  const want = String(process.env.HER_ACCOUNT || '').trim().toLowerCase();
   const e = String(email || '').trim().toLowerCase();
-  if (e !== 'her@example.com') {
+  if (!want) {
+    logRefusal('未设置 HER_ACCOUNT，跳过发送方账号校验：' + (e || '(空)'));
+    return true;
+  }
+  if (e !== want) {
     logRefusal('发送方不是她自己的账号：' + (e || '(空)'));
-    throw new ImpersonationError('发送方必须是她的账号（her@example.com）');
+    throw new ImpersonationError('发送方必须是 HER_ACCOUNT 指定的账号（' + want + '）');
   }
   return true;
 }

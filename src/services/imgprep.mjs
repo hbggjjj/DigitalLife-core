@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
 // 任何格式的图片都先转成标准 JPEG 再交给她。
 // 为什么：DeepSeek 只认 webp/png/jpeg/gif，而且 QQ 转发过来的图经常是
 // HEIC / BMP / 带 alpha 的 webp / 半截下载，直接塞会 400。

@@ -12,6 +12,8 @@ import { assertNotOwnerUid } from '../src/utils/impersonation-guard.mjs';
 import { assertLifeDir } from '../src/utils/lifedir.mjs';
 import path from 'node:path';
 import { syncFramework, verifySync } from '../src/utils/sync-framework.mjs';
+import { buildContext } from '../src/core/context.mjs';
+import { recentNeeds } from '../src/core/inner.mjs';
 import { reply as mindReply, followup as mindFollowup, applyActions, pickSay, auditSchema, probe as mindProbe } from '../src/core/mind.mjs';
 import { emit } from '../src/utils/events.mjs';
 import { sync as syncClock, status as clockStatus } from '../src/utils/clock.mjs';
@@ -19,7 +21,7 @@ import { logErr, brief as errBrief } from '../src/utils/errlog.mjs';
 import { snapshot as guardSnapshot, verify as guardVerify } from '../src/utils/guard.mjs';
 import { rebuild as rebuildSoul, get as getSoul } from '../src/core/soul.mjs';
 
-const ROOT = '__MIKU_ROOT__/bot';
+const ROOT = '/root/qqbot-v5/bot';
 let cfg = JSON.parse(fs.readFileSync(path.join(ROOT, 'config.json'), 'utf8'));
 const STATE_FILE = path.join(ROOT, 'state.json');
 const LOG_FILE = path.join(ROOT, 'reply.log');
@@ -49,7 +51,7 @@ function pushHistory(e) {
   try { assertLifeDir(); } catch (err) { log('拒绝写历史：' + err.message); return; }
   // 永久归档：只追加，不随 300 条上限滚掉
   try {
-    const arc = process.env.LIFE_DIR || '__MIKU_HOME__';
+    const arc = process.env.LIFE_DIR || '/home/ni/life';
     fs.appendFileSync(arc + '/chat-archive.jsonl', JSON.stringify(e) + '\n');
   } catch {}
   const s = loadState();
@@ -72,8 +74,8 @@ async function onebot(action, params) {
   return d;
 }
 
-const LOST = '__MIKU_ROOT__/bot/undelivered.log';
-const DEBUG_CHAT = '__MIKU_ROOT__/bot/debug-chat.jsonl';
+const LOST = '/root/qqbot-v5/bot/undelivered.log';
+const DEBUG_CHAT = '/root/qqbot-v5/bot/debug-chat.jsonl';
 function pushDebug(dir, text, agent = false) {
   try {
     fs.appendFileSync(DEBUG_CHAT, JSON.stringify({ dir, text, at: Date.now(), agent: !!agent }) + '\n');
@@ -87,7 +89,7 @@ function recentDebug(n = 6) {
       .map((l) => JSON.parse(l)).slice(-n);
   } catch { return []; }
 }
-const RETRY_Q = '__MIKU_ROOT__/bot/retry_queue.jsonl';
+const RETRY_Q = '/root/qqbot-v5/bot/retry_queue.jsonl';
 let lastOnline = null;
 
 function uidOfTarget() {
@@ -129,6 +131,8 @@ async function pingNapcat() {
 }
 
 async function onlineNow() {
+  // QQ/NapCat 已弃用：没配就当作"不在线"，不刷日志
+  if (cfg.napcat?.disabled || !cfg.napcat?.baseUrl) return false;
   try {
     const st = await onebotRaw('get_status', {}, 5000);
     if (!(st && st.online && st.good)) { lastLoginState = 'offline'; return false; }
@@ -249,7 +253,7 @@ async function sendWithRetry(action, params, tries = 3) {
   } catch (e) { log('写补发队列失败:', e.message); }
   // 连续发送失败 = 会话说"在线"但其实死了，插旗让守护进程重启 NapCat
   try {
-    fs.writeFileSync('__MIKU_ROOT__/.session-dead', new Date().toISOString());
+    fs.writeFileSync('/root/qqbot-v5/.session-dead', new Date().toISOString());
     log('已标记会话死亡，等待守护进程重启 NapCat');
   } catch {}
   loginBadStreak++;
@@ -257,7 +261,7 @@ async function sendWithRetry(action, params, tries = 3) {
   emit('reply', 'error', `消息没送到（已重试 3 次，连续 ${loginBadStreak} 次）：` + lastErr);
   if (loginBadStreak >= 2) {
     emit('reply', 'health', `连续 ${loginBadStreak} 次发不出去，判定会话假死，正在重启 NapCat`);
-    try { fs.writeFileSync('__MIKU_ROOT__/.session-dead', new Date().toISOString()); } catch {}
+    try { fs.writeFileSync('/root/qqbot-v5/.session-dead', new Date().toISOString()); } catch {}
   }
   logErr('send', new Error(lastErr || '发送失败'), {
     action,
@@ -556,7 +560,7 @@ function oneMessageHint() {
 
 function clientPresenceLine() {
   try {
-    const p = JSON.parse(fs.readFileSync('__MIKU_ROOT__/bot/client-presence.json', 'utf8'));
+    const p = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/client-presence.json', 'utf8'));
     const fresh = p.at && Date.now() - p.at < 3 * 60 * 1000;
     return fresh
       ? '\n【他那边】他手机上的客户端在线，这条发出去他马上能看到。'
@@ -602,6 +606,23 @@ async function generateReplyInner(historyLines, userText, imagePath = null, chan
       : (channel === 'web' ? '他·网页' : '他·QQ')
         + (flags.agent ? '·代发' : '')
         + (flags.resend ? '·补发' : '');
+  // 昨天/前天的日记：她自己写得最好的东西，之前一直读不到
+  try {
+    const ds = [1, 2].map((n) => {
+      const d = new Date(Date.now() - n * 86400000);
+      const p2 = (x) => String(x).padStart(2, '0');
+      return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+    });
+    let j = '';
+    for (const day of ds) {
+      try {
+        const t = fs.readFileSync((process.env.LIFE_DIR || '/home/ni/life') + '/journal/' + day + '.md', 'utf8').trim();
+        if (t) j += `\n\n【${day} 你写的日记】\n${t.slice(-700)}`;
+      } catch {}
+    }
+    if (j) lines += j;
+  } catch {}
+
   let hidden = '';
   try {
     const ns = recentNeeds(12, 2);
@@ -656,7 +677,7 @@ async function generateReplyInner(historyLines, userText, imagePath = null, chan
 
 function pickMeme(cat) {
   try {
-    const dir = `__MIKU_HOME__/shelf/memes/${cat}`;
+    const dir = `/home/ni/life/shelf/memes/${cat}`;
     const files = fs.readdirSync(dir).filter((f) => /\.(png|jpg|jpeg|gif)$/i.test(f));
     if (!files.length) return null;
     return `${dir}/${files[Math.floor(Math.random() * files.length)]}`;
@@ -806,12 +827,12 @@ async function handleMessage(ev) {
 
   const state = loadState();
   const hist = (state.history || []).slice(-120);
-  const lines = buildContext(hist, { maxTurns: 4, maxLines: 16 }).join('\n');
+  let lines = buildContext(hist, { maxTurns: 4, maxLines: 16 }).join('\n');
   // 上一轮她要求翻归档：这一轮把原文调出来
   try {
     const pr = state.pendingRecall;
     if (pr) {
-      const rows = fs.readFileSync((process.env.LIFE_DIR || '__MIKU_HOME__') + '/chat-archive.jsonl', 'utf8')
+      const rows = fs.readFileSync((process.env.LIFE_DIR || '/home/ni/life') + '/chat-archive.jsonl', 'utf8')
         .split('\n').filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
       let pick = rows;
       if (pr.since) {
@@ -833,6 +854,98 @@ async function handleMessage(ev) {
       } else {
         lines += '\n\n（你翻的这段归档里没找到记录。）';
       }
+      // 她按日期翻：把那天的日记原文也带上（日记是她自己写的，最准）
+      try {
+        const since = String(pr.since || '').trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(since)) {
+          const jf = (process.env.LIFE_DIR || '/home/ni/life') + '/journal/' + since + '.md';
+          if (fs.existsSync(jf)) {
+            const full = fs.readFileSync(jf, 'utf8').trim();
+            // 她要看某一天的日记：默认给全文（一天一般 1-3 千字），太长就分段，剩下的记在 state 里等她接着翻
+            const LIMIT = 6000;
+            if (full.length <= LIMIT) {
+              lines += `\n\n（${since} 你自己写的日记，全文 ${full.length} 字，原文：\n${full}）`;
+              delete state.pendingJournalRest;
+            } else {
+              const part = full.slice(0, LIMIT);
+              state.pendingJournalRest = { date: since, offset: LIMIT };
+              lines += `\n\n（${since} 日记全文 ${full.length} 字，先给你前 ${LIMIT} 字：\n${part}\n…还有 ${full.length - LIMIT} 字，想接着看就说一声。）`;
+            }
+            saveState(state);
+          }
+        }
+        // 上次没翻完的部分
+        try {
+          const rest = state.pendingJournalRest;
+          if (rest && rest.date && rest.offset) {
+            const jf2 = (process.env.LIFE_DIR || '/home/ni/life') + '/journal/' + rest.date + '.md';
+            if (fs.existsSync(jf2)) {
+              const full2 = fs.readFileSync(jf2, 'utf8').trim();
+              const part2 = full2.slice(rest.offset, rest.offset + 6000);
+              lines += `\n\n（${rest.date} 日记接着看：\n${part2}）`;
+              if (rest.offset + 6000 < full2.length) rest.offset += 6000;
+              else delete state.pendingJournalRest;
+              saveState(state);
+            }
+          }
+        } catch {}
+        const q = String(pr.q || '').trim();
+        if (q.length >= 2) {
+          // 先按"重量"找：核心记忆即使字面不匹配也会浮上来（人也是先想起重要的事）
+          try {
+            const { rankMemory, rerank } = await import('../src/core/salience.mjs');
+            const memRaw = fs.readFileSync((process.env.LIFE_DIR || '/home/ni/life') + '/memory.md', 'utf8');
+            const { core } = rankMemory(memRaw.split('\n'));
+            const grams = (x) => {
+              const c = String(x).replace(/[\s，。！？、,.!?]/g, '');
+              const o = new Set();
+              for (let i = 0; i < c.length - 1; i++) o.add(c.slice(i, i + 2));
+              return o;
+            };
+            const qg = grams(q);
+            const scored = core.map((x) => {
+              const tg = grams(x.text);
+              let hit = 0;
+              for (const g of qg) if (tg.has(g)) hit++;
+              return { x, score: hit + x.w * 0.6 };
+            }).sort((a, b) => b.score - a.score).slice(0, 4);
+            const lines2 = scored.filter((s2) => s2.score > 1).map((s2) => `- ${s2.x.date || ''}：${s2.x.text}（W${s2.x.w}）`);
+            if (scored.length >= 3) {
+              const picked = await rerank(q, scored.map((s3) => s3.x));
+              if (picked && picked.length) {
+                lines += '\n\n（我脑子里先冒出来的、最重的几件事：\n'
+                  + picked.map((x) => `- ${x.date || ''}：${x.text}（W${x.w}）`).join('\n')
+                  + '）';
+              } else if (lines2.length) {
+                lines += '\n\n（我脑子里先冒出来的、最重的几件事：\n' + lines2.join('\n') + '）';
+              }
+            } else if (lines2.length) {
+              lines += '\n\n（我脑子里先冒出来的、最重的几件事：\n' + lines2.join('\n') + '）';
+            }
+          } catch (e) { log('按重量想出错: ' + e.message); }
+          const dir = (process.env.LIFE_DIR || '/home/ni/life') + '/journal';
+          const hits = [];
+          for (const f of fs.readdirSync(dir).sort().slice(-30)) {
+            if (!f.endsWith('.md')) continue;
+            const t = fs.readFileSync(dir + '/' + f, 'utf8');
+            if (t.includes(q)) {
+              const i = t.indexOf(q);
+              hits.push(`- ${f.replace('.md', '')}：…${t.slice(Math.max(0, i - 40), i + 80).replace(/\n/g, ' ')}…`);
+            }
+          }
+          if (hits.length) lines += '\n\n（日记里提到这个词的地方：\n' + hits.slice(-5).join('\n') + '）';
+        }
+      } catch (e) { log('翻日记出错: ' + e.message); }
+
+      // 她问的事如果涉及"什么时候改过什么"，顺手翻 framework 归档
+      try {
+        const q = String(pr.q || '').trim();
+        if (q.length >= 2) {
+          const fa = fs.readFileSync((process.env.LIFE_DIR || '/home/ni/life') + '/framework-archive.md', 'utf8');
+          const hits = fa.split('\n').filter((l) => l.includes(q)).slice(-6);
+          if (hits.length) lines += '\n\n（改过什么的记录里，提到这个词的：\n' + hits.map((h) => '- ' + h.replace(/^[-#\s]+/, '').slice(0, 160)).join('\n') + '）';
+        }
+      } catch {}
       delete state.pendingRecall;
       saveState(state);
     }
@@ -928,7 +1041,7 @@ async function handleMessage(ev) {
   try {
     const askId = result0?.goal?.ask;
     if (askId) {
-      const gt = fs.readFileSync('__MIKU_HOME__/goals.md', 'utf8');
+      const gt = fs.readFileSync('/home/ni/life/goals.md', 'utf8');
       const line = gt.split('\n').find((l) => l.includes(`[${askId}]`)) || '';
       const key = (line.match(/\]\s*([^｜]{2,30})/) || [])[1] || '';
       const kw = key.replace(/[搞明白想为什么的\s]/g, '').slice(0, 4);
@@ -960,7 +1073,7 @@ async function handleMessage(ev) {
         emit('reply', 'reach', '她自己决定破例说了一句（不在活跃时段）：' + reach);
         try {
           const fs2 = await import('node:fs');
-          fs2.appendFileSync('__MIKU_HOME__/others-edits.md',
+          fs2.appendFileSync('/home/ni/life/others-edits.md',
             `| ${new Date().toLocaleString('zh-CN', { hour12: false }).slice(0, 16)} | 她破例说了一句：${reach.slice(0, 20)} | 她自己的决定 | 过了活跃时段，她自己选的 |\n`);
         } catch {}
         log('破例发出：' + reach);
@@ -1197,11 +1310,11 @@ setInterval(() => { maybeFollowUp().catch((e) => log('追问异常:', e.message)
 setInterval(async () => {
   const on = await onlineNow();
   try {
-    fs.writeFileSync('__MIKU_ROOT__/bot/.online', JSON.stringify({ online: on, at: Date.now(), state: lastLoginState, badStreak: loginBadStreak }));
+    fs.writeFileSync('/root/qqbot-v5/bot/.online', JSON.stringify({ online: on, at: Date.now(), state: lastLoginState, badStreak: loginBadStreak }));
   } catch {}
   // 假在线：NapCat 说 online，但连续两次发不出去 / 检测失败 → 重启 NapCat
   if (!on && loginBadStreak >= 2) {
-    try { fs.writeFileSync('__MIKU_ROOT__/.session-dead', new Date().toISOString()); } catch {}
+    try { fs.writeFileSync('/root/qqbot-v5/.session-dead', new Date().toISOString()); } catch {}
     emit('reply', 'health', `登录通道异常（连续 ${loginBadStreak} 次失败），已插旗让守护进程重启 NapCat`);
   }
   if (lastOnline === false && on) {
@@ -1217,7 +1330,7 @@ setInterval(async () => {
       // 自检只发一个 200 探测，不经过模型、不替她说话
       const ok2 = await pingNapcat();
       emit('reply', 'health', ok2 ? '自检：NapCat 200，通道活着' : '自检：NapCat 无响应');
-      if (!ok2) { try { fs.writeFileSync('__MIKU_ROOT__/.session-dead', new Date().toISOString()); } catch {} }
+      if (!ok2) { try { fs.writeFileSync('/root/qqbot-v5/.session-dead', new Date().toISOString()); } catch {} }
     }
   }
   lastOnline = on;

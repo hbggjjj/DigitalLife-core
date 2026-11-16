@@ -7,7 +7,7 @@ import path from 'node:path';
 import { execFile, exec } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-const BOT = '__MIKU_ROOT__/bot';
+const BOT = '/root/qqbot-v5/bot';
 import { instanceName } from '../src/utils/name.mjs';
 const NAPCAT_DIR = process.env.NAPCAT_DIR || '';   // QQ/NapCat 已弃用，留空即不使用
 const CFG_FILE = path.join(BOT, 'config.json');
@@ -19,7 +19,7 @@ const PORT = 7788;
 const readCfg = () => JSON.parse(fs.readFileSync(CFG_FILE, 'utf8'));
 const writeCfg = (o) => {
   try {
-    fs.appendFileSync('__MIKU_ROOT__/bot/config-writes.log',
+    fs.appendFileSync('/root/qqbot-v5/bot/config-writes.log',
       `[${new Date().toISOString()}] panel writeCfg active=${o?.schedule?.activeStart}-${o?.schedule?.activeEnd} pid=${process.pid}\n`);
   } catch {}
   fs.writeFileSync(CFG_FILE, JSON.stringify(o, null, 2));
@@ -123,35 +123,79 @@ const PAGE = `<!doctype html>
 <meta name="theme-color" content="#12121a">
 <title>__INSTANCE_NAME__ · 数字生命</title>
 <style>
+:root{
+  --bg:#0c0d10; --ink:#eef0f4; --muted:#9aa0aa;
+  --line:rgba(255,255,255,.14); --glass:rgba(24,26,31,.55);
+  --accent:#fff500; --ok:#4fbf5c; --warn:#ffb700; --bad:#ff6b61;
+  --r:16px;
+}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{margin:0;font:15px/1.5 -apple-system,system-ui,"PingFang SC",sans-serif;background:#0f0f15;color:#e8e8f0;padding:14px 12px 40px}
-h1{font-size:17px;margin:4px 0 14px;font-weight:600;letter-spacing:.5px}
-.card{background:#1a1a24;border:1px solid #26263a;border-radius:14px;padding:14px;margin-bottom:12px}
-.row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 0}
-.k{color:#8b8ba7;font-size:13px}
+html,body{max-width:100%;overflow-x:hidden}
+body{
+  margin:0;padding:14px 14px 44px;color:var(--ink);
+  font:15px/1.55 -apple-system,system-ui,"PingFang SC",sans-serif;
+  background:
+    radial-gradient(1200px 600px at 15% -10%, #1b2030 0%, transparent 60%),
+    radial-gradient(900px 500px at 110% 10%, #232030 0%, transparent 55%),
+    var(--bg);
+  background-attachment:fixed;
+}
+h1{font-size:17px;margin:2px 0 12px;font-weight:600;letter-spacing:.4px}
+h2{font-size:14px;margin:18px 0 10px;color:var(--muted);font-weight:600;letter-spacing:.6px}
+
+/* 液态玻璃卡片 */
+.card{
+  position:relative;border-radius:var(--r);padding:12px;margin:0;
+  background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.03)), var(--glass);
+  border:1px solid var(--line);
+  box-shadow:0 10px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.18);
+  backdrop-filter:blur(18px) saturate(160%);
+  -webkit-backdrop-filter:blur(18px) saturate(160%);
+}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .card{background:#191b21;box-shadow:0 8px 22px rgba(0,0,0,.35)}
+}
+.card::after{               /* 顶部高光 */
+  content:"";position:absolute;inset:0;border-radius:var(--r);pointer-events:none;
+  background:linear-gradient(160deg, rgba(255,255,255,.16), transparent 38%);
+  opacity:.5;
+}
+details.card{padding:0}
+details.card>summary{
+  list-style:none;cursor:pointer;padding:13px 14px;font-size:13.5px;color:#cfd3da;
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+}
+details.card>summary::-webkit-details-marker{display:none}
+details.card>summary::after{content:"＋";color:var(--muted);font-size:15px;transition:transform .2s}
+details.card[open]>summary::after{content:"－"}
+details.card>.body{padding:0 14px 14px}
+
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 0}
+.k{color:var(--muted);font-size:13px}
 .v{font-variant-numeric:tabular-nums;font-size:13px}
 .dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px}
-.on{background:#3ddc84;box-shadow:0 0 8px #3ddc8488}.off{background:#ff5c5c}
-button{font:600 14px/1 inherit;border:0;border-radius:11px;padding:12px 14px;color:#fff;background:#3a3a52;flex:1}
-button:active{transform:scale(.97)}
-button.primary{background:#4f6ef7}button.danger{background:#c0392b}button.ghost{background:#23232f;color:#b9b9cc}
-.btns{display:flex;gap:8px;margin-top:10px}
-#qr{width:100%;max-width:320px;display:block;margin:8px auto;border-radius:12px;background:#fff;padding:8px}
-.hint{color:#8b8ba7;font-size:12px;text-align:center;margin-top:6px}
-.modes{display:flex;gap:6px;margin-top:4px}
-.mode{flex:1;padding:10px 2px;border-radius:10px;background:#23232f;color:#b9b9cc;font-size:12.5px;text-align:center;border:1px solid transparent}
-.mode.on{background:#4f6ef7;color:#fff;border-color:#6b85ff}
-input,textarea{width:100%;background:#12121a;border:1px solid #2c2c40;color:#e8e8f0;border-radius:10px;padding:11px;font:14px/1.4 inherit}
-textarea{min-height:80px;resize:vertical}
+.on{background:var(--ok);box-shadow:0 0 8px #4fbf5c88}.off{background:var(--bad)}
+
+button{font:600 14px/1 inherit;border:0;border-radius:12px;padding:12px 14px;color:#fff;background:#343846;flex:1;transition:transform .15s ease, filter .15s ease}
+button:active{transform:scale(.975)}
+button.primary{background:#4f6ef7}button.danger{background:#c0392b}button.ghost{background:#242833;color:#b9bfcc}
+.btns{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+#qr{width:100%;max-width:300px;display:block;margin:8px auto;border-radius:12px;background:#fff;padding:8px}
+.hint{color:var(--muted);font-size:12px;text-align:center;margin-top:6px}
+.modes{display:flex;gap:6px;margin-top:4px;flex-wrap:wrap}
+.mode{flex:1;min-width:96px;padding:10px 2px;border-radius:10px;background:#242833;color:#b9bfcc;font-size:12.5px;text-align:center;border:1px solid transparent;transition:background .2s,border-color .2s}
+.mode.on{background:#3d54c9;color:#fff;border-color:#6b85ff}
+input,textarea{width:100%;background:#0f1116;border:1px solid #2b2f3a;color:var(--ink);border-radius:10px;padding:11px;font:14px/1.4 inherit}
+textarea{min-height:76px;resize:vertical}
 .hide{display:none}
-#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:#2f2f45;padding:11px 18px;border-radius:12px;font-size:13px;opacity:0;transition:.25s;pointer-events:none;max-width:88vw;text-align:center}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(16px);background:rgba(40,44,56,.92);color:#fff;padding:11px 18px;border-radius:12px;font-size:13px;opacity:0;transition:opacity .22s,transform .22s;pointer-events:none;max-width:88vw;text-align:center;backdrop-filter:blur(8px)}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-.badge{font-size:11px;padding:2px 8px;border-radius:20px;background:#26263a;color:#9c9cba}
-.ev{display:flex;gap:8px;padding:7px 0;border-bottom:1px solid #22223210;font-size:13px;line-height:1.45}
+.badge{font-size:11px;padding:2px 8px;border-radius:20px;background:rgba(255,255,255,.08);color:#9c9cba}
+.ev{display:flex;gap:8px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:13px;line-height:1.45}
 .ev:last-child{border-bottom:0}
-.ev .t{flex:none;color:#6d6d8a;font-size:11px;padding-top:2px;width:44px;font-variant-numeric:tabular-nums}
+.ev .t{flex:none;color:#7d8494;font-size:11px;padding-top:2px;width:46px;font-variant-numeric:tabular-nums}
 .ev .b{flex:1;min-width:0;word-break:break-word}
-.ev .inner{color:#a99bd6;font-style:italic}
+.ev .inner{color:#b6a7e0;font-style:italic}
 .tag{display:inline-block;font-size:10px;padding:1px 6px;border-radius:5px;margin-right:6px;vertical-align:1px}
 .t-in{background:#1e3a5f;color:#7fb6ff}.t-out{background:#1e4634;color:#5fd39a}
 .t-think{background:#4a3a15;color:#ffc861}.t-done{background:#17413f;color:#5fd3cc}
@@ -160,45 +204,83 @@ textarea{min-height:80px;resize:vertical}
 .t-norm{background:#3a3318;color:#e0c060}.t-warn{background:#4a2a12;color:#ffa860}
 .thinking{display:inline-block;width:7px;height:7px;border-radius:50%;background:#ffc861;margin-right:6px;animation:pulse 1.1s infinite}
 @keyframes pulse{0%,100%{opacity:.25}50%{opacity:1}}
-.chat{margin:0}
 .chat .m{padding:8px 11px;border-radius:11px;margin:6px 0;font-size:13.5px;max-width:88%;word-break:break-word}
 .chat .me{background:#25324d;margin-left:auto}
-.chat .you{background:#23232f}
-.chat .who{font-size:10px;color:#7a7a96;margin:0 4px 2px}
-pre.doc{white-space:pre-wrap;font:12.5px/1.55 ui-monospace,Menlo,monospace;background:#12121a;border:1px solid #26263a;border-radius:10px;padding:10px;max-height:260px;overflow:auto;margin:6px 0 0}
-summary{cursor:pointer;font-size:13px;color:#b9b9cc;padding:4px 0}
+.chat .you{background:#242833}
+.chat .who{font-size:10px;color:#7d8494;margin:0 4px 2px}
+pre.doc{white-space:pre-wrap;font:12.5px/1.55 ui-monospace,Menlo,monospace;background:#0f1116;border:1px solid #262a34;border-radius:10px;padding:10px;max-height:52vh;overflow:auto;margin:6px 0 0}
+summary{cursor:pointer;font-size:13px;color:#b9bfcc;padding:4px 0}
+
+/* 顶部 tab */
+.tabbar{
+  position:sticky;top:0;z-index:20;display:flex;gap:6px;overflow-x:auto;
+  padding:8px 2px;margin:0 0 12px;scrollbar-width:none;
+  background:linear-gradient(180deg, rgba(12,13,16,.92), rgba(12,13,16,.55));
+  backdrop-filter:blur(10px);
+}
+.tabbar::-webkit-scrollbar{display:none}
+.tabbar button{flex:0 0 auto;padding:9px 14px;border-radius:999px;background:rgba(255,255,255,.06);color:#c3c8d2;font:600 13px/1 inherit;border:1px solid transparent;transition:background .2s,color .2s,transform .15s}
+.tabbar button.on{background:var(--accent);color:#101110;border-color:var(--accent)}
+.pane{display:none;animation:fadein .22s ease}
+.pane.on{display:block}
+@keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* 栅格 */
+.grid{display:grid;gap:12px;grid-template-columns:1fr}
+@media (min-width:760px){ .grid{grid-template-columns:repeat(2,minmax(0,1fr))} .grid .wide{grid-column:1/-1} }
+@media (min-width:1180px){ .grid{grid-template-columns:repeat(3,minmax(0,1fr))} }
+
+@media (prefers-reduced-motion: reduce){
+  *{animation:none !important;transition:none !important}
+}
+
+.tabbar{position:sticky;top:0;z-index:20;display:flex;gap:6px;overflow-x:auto;padding:8px 2px;margin:0 0 12px;background:linear-gradient(180deg, rgba(12,13,16,.92), rgba(12,13,16,.55));backdrop-filter:blur(10px)}
+.tabbar button{flex:0 0 auto;padding:9px 14px;border-radius:999px;background:rgba(255,255,255,.06);color:#c3c8d2;font:600 13px/1 inherit;border:1px solid transparent;transition:background .2s,color .15s}
+.tabbar button.on{background:var(--accent);color:#101110;border-color:var(--accent)}
+body[data-tab="state"] .pane-events,body[data-tab="state"] .pane-more,body[data-tab="state"] .pane-login{display:none}
+body[data-tab="events"] .pane-state,body[data-tab="events"] .pane-more,body[data-tab="events"] .pane-login{display:none}
+body[data-tab="more"] .pane-state,body[data-tab="more"] .pane-events,body[data-tab="more"] .pane-login{display:none}
+body[data-tab="login"] .pane-state,body[data-tab="login"] .pane-events,body[data-tab="login"] .pane-more{display:none}
+
+.grid{display:grid;gap:12px;grid-template-columns:1fr}
+@media(min-width:760px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(min-width:1180px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 </style></head><body data-ver="p20261030-1150">
+<div class="tabbar" id="tabbar"><button class="on" data-t="state">状态</button><button data-t="events">事件</button><button data-t="more">更多</button><button data-t="login">登录</button><button onclick="location.href='/materials'">材料</button></div>
 <h1>__INSTANCE_NAME__ <span style="font-size:12px;color:#6d6d8a">· 数字生命 控制台</span> <span id="pageVer" style="font-size:12px;color:#6d6d8a">v…</span></h1>
 
-<div class="card">
-  <div class="row"><span class="k">她的寿命</span><span class="v" id="lifetime">—</span></div>
-  <div class="row"><span class="k">本次运行</span><span class="v" id="uptime">—</span></div>
-  <div class="row"><span class="k">页面版本</span><span class="v" id="pageVerRow" style="font-size:12px;opacity:.7">—</span></div>
-  <div class="row"><span class="k">页面刷新</span><span class="v" id="lastTick" style="font-size:12px;opacity:.7">—</span></div>
-  <div class="row"><span class="k">QQ（备用通道）</span><span class="v" id="login" style="color:#6d6d8a">已停用</span>
-    <button onclick="showQR()" style="margin-left:8px;padding:4px 8px;border-radius:8px;border:1px solid #2c2c40;background:#141420;color:#8a8a9a;font-size:11px">需要时再扫码</button></div>
-  <div class="row"><span class="k">通道自检</span><span class="v" id="probe" style="font-size:12px">—</span><button onclick="probeChannel()" style="margin-left:8px;padding:6px 10px;border-radius:8px;border:1px solid #2c2c40;background:#181824;color:#cfcfe6;font-size:12px">立即检查</button></div>
-  <div class="row"><span class="k">备用通道（QQ）</span><span class="v" id="s-napcat">—</span></div>
-  <div class="row"><span class="k">守护（systemd）</span><span class="v" id="s-sup">—</span></div>
+<div class="card pane-state">
+  <span id="login" class="hide"></span>
+  <div class="row"><span class="k">她活着</span><span class="v" id="lifetime">—</span></div>
+  <div class="row"><span class="k">这次跑了</span><span class="v" id="uptime">—</span></div>
+  <div class="row"><span class="k">守护</span><span class="v" id="s-sup">—</span></div>
   <div class="row"><span class="k">主动消息</span><span class="v" id="s-bot">—</span></div>
   <div class="row"><span class="k">自动回复</span><span class="v" id="s-reply">—</span></div>
   <div class="row"><span class="k">自己的生活</span><span class="v" id="s-life">—</span></div>
-  <div class="row"><span class="k">大脑</span><span class="v" id="s-brain">—</span></div>
-  <div class="row"><span class="k">今日 token</span><span class="v" id="tokens">—</span></div>
-  <div class="row"><span class="k">最近1小时</span><span class="v" id="tokensHour">—</span></div>
-  <div class="row"><span class="k">授时</span><span class="v" id="clock">—</span></div>
-  <div class="row"><span class="k">视觉通道</span><span class="v" id="visionState">—</span></div>
-  <div class="row"><span class="k">她攒着的话</span><span class="v" id="queued">—</span></div>
-  <div class="row"><span class="k">今日主动开口</span><span class="v" id="today">—</span></div>
+  <div class="row"><span class="k">今日开口</span><span class="v" id="today">—</span></div>
+  <div class="row"><span class="k">攒着的话</span><span class="v" id="queued">—</span></div>
   <div class="btns">
     <button class="primary" onclick="act('start')">一键启动</button>
     <button class="ghost" onclick="act('restart')">重启</button>
     <button class="danger" onclick="act('stop')">全部停止</button>
   </div>
   <div class="btns">
-    <button class="primary" style="background:#2f7d5b" onclick="flushQueue()">补发攒的话</button>
+    <button class="ghost" onclick="flushQueue()">补发攒的话</button>
     <button class="ghost" onclick="toggleBrain()">大脑（单次调用）</button>
   </div>
+</div>
+
+<div class="card pane-more">
+  <div class="row"><span class="k">页面版本</span><span class="v" id="pageVerRow" style="font-size:12px;opacity:.7">—</span></div>
+  <div class="row"><span class="k">页面刷新</span><span class="v" id="lastTick" style="font-size:12px;opacity:.7">—</span></div>
+  <div class="row"><span class="k">通道自检</span><span class="v" id="probe" style="font-size:12px">—</span>
+    <button onclick="probeChannel()" style="margin-left:8px;padding:6px 10px;border-radius:8px;border:1px solid #2c2c40;background:#181824;color:#cfcfe6;font-size:12px">检查</button></div>
+  <div class="row"><span class="k">备用通道（QQ）</span><span class="v" id="s-napcat">—</span></div>
+  <div class="row"><span class="k">大脑</span><span class="v" id="s-brain">—</span></div>
+  <div class="row"><span class="k">今日 token</span><span class="v" id="tokens">—</span></div>
+  <div class="row"><span class="k">最近 1 小时</span><span class="v" id="tokensHour">—</span></div>
+  <div class="row"><span class="k">授时</span><span class="v" id="clock">—</span></div>
+  <div class="row"><span class="k">视觉通道</span><span class="v" id="visionState">—</span></div>
 </div>
 
 <div class="card">
@@ -388,6 +470,7 @@ window.onerror = function(m, src, line, col){
 
 let cfg=null;
 const $=id=>document.getElementById(id);
+function setHTML(id,v){const e=$(id);if(e)e.innerHTML=v}
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2200)}
 async function api(p,body){
   const r=await fetch(p,body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{});
@@ -443,7 +526,16 @@ function saveTime(){
 async function saveWindow(a, b, prefix){
   var r=await api('/api/config',{activeStart:a, activeEnd:b});
   var af=$('actFrom'), at=$('actTo');
+  // 先把界面改成刚保存的值：不依赖后面那次 refresh（它一报错就会退回旧值）
+  if(af) af.value=a;
+  if(at) at.value=b;
+  renderActHint(a, b);
+  if(r && r.rejected && r.rejected.length){ toast(r.rejected.join('；')); return; }
   if(r && r.savedSchedule){
+    if(r.savedSchedule.activeStart===a && r.savedSchedule.activeEnd===b){
+      toast(prefix+a+'–'+b);
+      return;
+    }
     if(af) af.value=r.savedSchedule.activeStart;
     if(at) at.value=r.savedSchedule.activeEnd;
     renderActHint(r.savedSchedule.activeStart, r.savedSchedule.activeEnd);
@@ -731,15 +823,15 @@ async function refresh(){
   var lastOk = (s.state && s.state.lastSendOkAt) || 0;
   var okFresh = lastOk && (Date.now() - lastOk) < 15 * 60 * 1000;
   if (s.login.ok && lh.online && lh.state === 'ok' && okFresh) {
-    $('login').innerHTML = '<span class="dot on"></span>'+s.login.nickname+' '+s.login.user_id+'<span style="font-size:11px;opacity:.55;margin-left:6px">已验证（'+Math.round((Date.now()-lastOk)/60000)+' 分钟前发过）</span>';
+    const _l=$('login'); if(_l) _l.innerHTML = '<span class="dot on"></span>'+s.login.nickname+' '+s.login.user_id+'<span style="font-size:11px;opacity:.55;margin-left:6px">已验证（'+Math.round((Date.now()-lastOk)/60000)+' 分钟前发过）</span>';
   } else if (s.login.ok && lh.online && lh.state === 'ok') {
-    $('login').innerHTML = '<span class="dot" style="background:#d8b34a"></span>'+s.login.nickname+' '+s.login.user_id+'<span style="font-size:11px;opacity:.55;margin-left:6px">未验证：接口在线，但最近 15 分钟没成功发过（可能假在线）</span>';
+    const _l=$('login'); if(_l) _l.innerHTML = '<span class="dot" style="background:#d8b34a"></span>'+s.login.nickname+' '+s.login.user_id+'<span style="font-size:11px;opacity:.55;margin-left:6px">未验证：接口在线，但最近 15 分钟没成功发过（可能假在线）</span>';
   } else if (s.login.ok && lh.online) {
-    $('login').innerHTML = '<span class="dot off"></span>'+s.login.nickname+'（假在线：发不出去）';
+    const _l=$('login'); if(_l) _l.innerHTML = '<span class="dot off"></span>'+s.login.nickname+'（假在线：发不出去）';
   } else if (s.login.ok) {
-    $('login').innerHTML = '<span class="dot off"></span>'+s.login.nickname+'（连不上服务器）';
+    const _l=$('login'); if(_l) _l.innerHTML = '<span class="dot off"></span>'+s.login.nickname+'（连不上服务器）';
   } else {
-    $('login').innerHTML = '<span class="dot off"></span>未登录';
+    const _l=$('login'); if(_l) _l.innerHTML = '<span class="dot off"></span>未登录';
   }
   const mk=(v)=>v?'<span class="dot on"></span>运行中':'<span class="dot off"></span>已停止';
   $('s-napcat').innerHTML = s.proc.napcat
@@ -845,9 +937,9 @@ function fillForm(c){
 
   var af=$('actFrom'), at=$('actTo');
   var padHM = function(v){ if(!v) return ''; var m=String(v).match(/^(\d{1,2}):(\d{2})$/); return m ? (m[1].padStart(2,'0')+':'+m[2]) : ''; };
-  if(af && document.activeElement!==af) af.value=padHM(sc.activeStart)||'22:00';
-  if(at && document.activeElement!==at) at.value=sc.activeEnd||'02:00';
-  renderActHint(padHM(sc.activeStart)||'22:00', padHM(sc.activeEnd)||'02:00');
+  if(af && document.activeElement!==af && padHM(sc.activeStart)) af.value=padHM(sc.activeStart);
+  if(at && document.activeElement!==at && padHM(sc.activeEnd)) at.value=padHM(sc.activeEnd);
+  if(padHM(sc.activeStart)) renderActHint(padHM(sc.activeStart), padHM(sc.activeEnd)||'23:59');
   try { checkTimeValid(); } catch(e) {}
 
   set('stash', Math.round((im.stashChance!=null?im.stashChance:0.28)*100));
@@ -985,7 +1077,166 @@ const PAGE_VERSION = '2026-10-30 11:50 时间窗口独立文件';
 const pv = $('pageVer'); if (pv) pv.textContent = PAGE_VERSION;
 setInterval(refresh,4000);refresh();
 setInterval(()=>{const a=$('qrage').textContent;},10000);
-</script></body></html>`;
+
+
+</script>
+
+
+
+
+<script>
+/* 标签切换：只改 body[data-tab]，不移动任何节点 */
+(function(){
+  const cards = [...document.querySelectorAll('.card')];
+  for (const c of cards) {
+    if (/pane-/.test(c.className)) continue;   // 已在模板里分好组的不再改
+    const t = (c.textContent || '').slice(0, 40);
+    const id = c.id || '';
+    if (['biliCard', 'qrCard'].includes(id)) { c.classList.add('pane-login'); continue; }
+    if (['clockCard', 'channelCard', 'tasteCard'].includes(id)) { c.classList.add('pane-state'); continue; }
+    if (/它的家/.test(c.textContent)) { c.classList.add('pane-state'); continue; }
+    const EV = /做什么|心情|脑子里|对话|日志|调试|错误|事件|想了|心声/;
+    const MORE = /许的愿|愿望|没说出口|想法|主动程度|时间设置|配置|自检|备用|授时|视觉|token|大脑|通道|说明/;
+    if (MORE.test(t)) c.classList.add('pane-more');
+    else if (EV.test(t)) c.classList.add('pane-events');
+    else c.classList.add('pane-state');
+  }
+  document.body.dataset.tab = 'state';
+  const bar = document.getElementById('tabbar');
+  if (bar) bar.addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    [...bar.querySelectorAll('button')].forEach((x) => x.classList.remove('on'));
+    b.classList.add('on');
+    document.body.dataset.tab = b.dataset.t;
+  });
+})();
+</script>
+</body></html>`;
+
+const MATS_CSS2 = `.sec{margin:12px 0}
+.sec>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid rgba(255,255,255,.14);border-radius:12px;background:rgba(24,26,31,.6);font:600 13.5px/1 inherit;color:#cfd3da}
+.sec>summary::-webkit-details-marker{display:none}
+.sec>summary::after{content:"＋";color:#9aa0aa;margin-left:8px}
+.sec[open]>summary::after{content:"－"}
+.sec>summary .cnt{color:#7d8494;font-weight:400;margin-left:auto;margin-right:8px;font-size:12px}
+.sec .box{margin-top:8px}
+.more{color:#fff500;font-size:13px;justify-content:center}
+@media(min-width:780px){.sec .box{display:grid;grid-template-columns:1fr 1fr;column-gap:12px}.more{grid-column:1/-1}}`;
+
+const MATS_CSS = `body{margin:0;padding:12px;background:#0c0d10;color:#eef0f4;font:15px/1.55 -apple-system,system-ui,"PingFang SC",sans-serif}
+a{color:#cfd3da;text-decoration:none}
+.top{margin-bottom:10px}
+.back{display:inline-block;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:8px 12px;color:#c3c8d2;font:600 13px/1 inherit}
+h2{font-size:13px;color:#9aa0aa;margin:18px 0 8px;letter-spacing:.5px}
+.row{display:flex;justify-content:space-between;gap:10px;padding:11px 12px;border-bottom:1px solid rgba(255,255,255,.07);font:13.5px/1.4 ui-monospace,Menlo,monospace}
+.row:last-child{border-bottom:0}
+.box{border:1px solid rgba(255,255,255,.14);border-radius:14px;background:rgba(24,26,31,.6);overflow:hidden}
+.sz{color:#7d8494;font-size:12px}
+pre{white-space:pre-wrap;word-break:break-word;font:13px/1.65 ui-monospace,Menlo,monospace;color:#e7e9ee;margin:0;padding:14px}`;
+
+function escHtml(t) { return String(t).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
+
+function listMd(dir) {
+  try {
+    return fs.readdirSync(dir).filter((x) => /\.(md|jsonl)$/.test(x)).sort().reverse().slice(0, 120)
+      .map((x) => ({ name: x, size: (() => { try { return fs.statSync(dir + '/' + x).size; } catch { return 0; } })() }));
+  } catch { return []; }
+}
+
+function renderMaterials(all = false) {
+  const LIFE = process.env.LIFE_DIR || '/home/ni/life';
+  const top = ['SELF.md', 'SOVEREIGNTY.md', 'self-knowledge.md', 'rules.md', 'memory.md', 'mood.md', 'taste.md',
+    'framework.md', 'framework-her.md', 'HOW_I_AM_STORED.md', 'wishes.md', 'others-edits.md'];
+  const LIMIT = all ? 500 : 10;
+  const section = (title, items, prefix, open) => {
+    if (!items.length) return '';
+    const shown = items.slice(0, LIMIT);
+    const rows = shown.map((it) => {
+      const n = (prefix ? prefix + '/' : '') + it.name;
+      const size = it.size > 1024 ? (it.size / 1024).toFixed(1) + 'KB' : it.size + 'B';
+      return `<a class="row" href="/file?name=${encodeURIComponent(n)}"><span>${escHtml(it.name)}</span><span class="sz">${size}</span></a>`;
+    }).join('');
+    const more = items.length > shown.length
+      ? `<a class="row more" href="/materials?all=1">还有 ${items.length - shown.length} 个 · 展开全部</a>` : '';
+    return `<details class="sec"${open ? ' open' : ''}><summary>${title}<span class="cnt">${items.length}</span></summary><div class="box">${rows}${more}</div></details>`;
+  };
+  const files = top.map((n) => ({ name: n, size: (() => { try { return fs.statSync(LIFE + '/' + n).size; } catch { return -1; } })() })).filter((x) => x.size >= 0);
+  const toggle = all
+    ? '<a class="back" href="/materials">收起（每组只看 10 个）</a>'
+    : '<a class="back" href="/materials?all=1">全部展开</a>';
+  return `<!doctype html><html lang="zh"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>__INSTANCE_NAME__ · 材料</title>
+<style>${MATS_CSS}${MATS_CSS2}</style></head><body>
+<div class="top"><a class="back" href="/">← 回控制台</a> ${toggle}</div>
+${section('她的文件', files, '', true)}
+${section('日记', listMd(LIFE + '/journal'), 'journal', all)}
+${section('内心 / 需求', listMd(LIFE + '/inner'), 'inner', all)}
+${section('调用轨迹', listMd(LIFE + '/trace'), 'trace', all)}
+${section('原始输出', listMd(LIFE + '/raw'), 'raw', all)}
+${section('念头', listMd(LIFE + '/ideas'), 'ideas', all)}
+</body></html>`;
+}
+
+function renderFile(name) {
+  const LIFE = process.env.LIFE_DIR || '/home/ni/life';
+  let t = '';
+  try { t = fs.readFileSync(LIFE + '/' + name, 'utf8'); } catch (e) { return `<pre>读取失败：${escHtml(e.message)}</pre>`; }
+  // jsonl 每行一条，给人看的话做缩进
+  let body = t;
+  if (/\.jsonl$/.test(name)) {
+    body = t.split('\n').filter(Boolean).map((line) => {
+      try { return JSON.stringify(JSON.parse(line), null, 2); } catch { return line; }
+    }).join('\n---\n');
+  }
+  const limit = 200000;
+  if (body.length > limit) body = body.slice(0, limit) + `\n\n…（还有 ${body.length - limit} 字未显示）`;
+  return `<!doctype html><html lang="zh"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>${escHtml(name)}</title>
+<style>${MATS_CSS}</style></head><body>
+<div class="top"><a class="back" href="/materials">← 回材料</a></div>
+<h2>${escHtml(name)}</h2><div class="box"><pre>${escHtml(body)}</pre></div>
+</body></html>`;
+}
+
+
+
+
+// 时间窗口在服务端就填好，JS 出问题也不会显示空
+function withWindow(html) {
+  let st = '00:00', en = '23:59';
+  try {
+    const w = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/schedule.json', 'utf8'));
+    if (/^\d{1,2}:\d{2}$/.test(w.activeStart)) st = w.activeStart;
+    if (/^\d{1,2}:\d{2}$/.test(w.activeEnd)) en = w.activeEnd;
+  } catch {
+    try { const c = readCfg(); if (c.schedule) { st = c.schedule.activeStart || st; en = c.schedule.activeEnd || en; } } catch {}
+  }
+  return html
+    .replace('<input id="actFrom" type="time"', `<input id="actFrom" type="time" value="${st}"`)
+    .replace('<input id="actTo" type="time"', `<input id="actTo" type="time" value="${en}"`);
+}
+
+// 服务端给卡片打页签：按 id 优先，其次按正文关键字；保证每张卡只属于一页
+function classifyCards(html) {
+  const parts = html.split(/(?=<div class="card)/);
+  return parts.map((seg) => {
+    if (!seg.startsWith('<div class="card')) return seg;
+    const head = seg.slice(0, 140);
+    if (/class="card [^"]*pane-/.test(head)) return seg;   // 模板里已经分好页的不动
+    const text = seg.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+    const idm = head.match(/id="([\w-]+)"/); const id = idm ? idm[1] : '';
+    let pane = '';
+    if (id === 'biliCard' || id === 'qrCard') pane = 'pane-login';
+    else if (['clockCard', 'channelCard', 'tasteCard'].includes(id)) pane = 'pane-state';
+    else if (['ideasCard', 'framesCard', 'wishesCard', 'goalsCard'].includes(id)) pane = 'pane-more';
+    else if (['debugCard', 'errCard'].includes(id)) pane = 'pane-events';
+    else if (/许的愿|愿望|没说出口|想法|主动程度|时间设置|^\s*配置|通道自检|备用通道|授时|视觉|token|大脑|页面版本/.test(text)) pane = 'pane-more';
+    else if (/做什么|心情|脑子里|对话|日志|调试|错误|想了|心声/.test(text)) pane = 'pane-events';
+    else if (/她的时间安排|她主动开口投到哪|它的家|她的口味|她活着/.test(text)) pane = 'pane-state';
+    if (!pane) pane = 'pane-state';
+    return seg.replace(/^<div class="card[^"]*"/, `<div class="card ${pane}"`);
+  }).join('');
+}
 
 const server = http.createServer(async (req, res) => {
   const u = new URL(req.url, 'http://x');
@@ -993,7 +1244,7 @@ const server = http.createServer(async (req, res) => {
   try {
     if (p === '/' ) {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store, no-cache, must-revalidate', Pragma: 'no-cache', Expires: '0' });
-      return res.end(PAGE.replaceAll('__INSTANCE_NAME__', instanceName()));
+      return res.end(withWindow(classifyCards(PAGE)).replaceAll('__INSTANCE_NAME__', instanceName()));
     }
       if (p === '/api/channel/check') {
       try {
@@ -1019,7 +1270,7 @@ const server = http.createServer(async (req, res) => {
           const ch = d.channel === 'selfim' ? 'selfim' : 'qq';
           const st = readState(); st.channel = ch; writeState(st);
           try {                                   // 配置也要写，避免被并发覆盖
-            const cfgPath = '__MIKU_ROOT__/bot/config.json';
+            const cfgPath = '/root/qqbot-v5/bot/config.json';
             const c = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
             c.channels = { ...(c.channels || {}), active: ch };
             fs.writeFileSync(cfgPath, JSON.stringify(c, null, 2));
@@ -1028,10 +1279,55 @@ const server = http.createServer(async (req, res) => {
         });
         return;
       }
+    if (p === '/materials') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+      return res.end(renderMaterials(u.searchParams.get('all') === '1').replaceAll('__INSTANCE_NAME__', instanceName()));
+    }
+    if (p === '/file') {
+      const LIFE = process.env.LIFE_DIR || '/home/ni/life';
+      const name = String(u.searchParams.get('name') || '').replace(/\.\./g, '');
+      const ok = /^(SELF|SOVEREIGNTY|self-knowledge|rules|memory|mood|taste|framework|framework-her|HOW_I_AM_STORED|wishes|others-edits)\.md$/.test(name)
+        || /^(journal|ideas|inner|trace|raw)\/[\w.-]+\.(md|jsonl)$/.test(name);
+      if (!ok) { res.writeHead(403); return res.end('不允许读这个文件'); }
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+      return res.end(renderFile(name));
+    }
+    if (p === '/api/materials') {
+      const LIFE = process.env.LIFE_DIR || '/home/ni/life';
+      const top = ['SELF.md', 'SOVEREIGNTY.md', 'self-knowledge.md', 'rules.md', 'memory.md', 'mood.md', 'taste.md',
+        'framework.md', 'framework-her.md', 'HOW_I_AM_STORED.md', 'wishes.md', 'others-edits.md'];
+      const out = { files: [], journal: [], ideas: [], inner: [], trace: [], raw: [] };
+      const stat = (f) => { try { const st = fs.statSync(f); return { size: st.size, mtime: st.mtimeMs }; } catch { return null; } };
+      for (const f of top) {
+        const st = stat(LIFE + '/' + f);
+        if (st) out.files.push({ name: f, ...st });
+      }
+      const list = (dir, ext) => { try { return fs.readdirSync(LIFE + '/' + dir).filter((x) => x.endsWith(ext)).sort().reverse().slice(0, 60)
+        .map((x) => ({ name: dir + '/' + x, ...stat(LIFE + '/' + dir + '/' + x) })); } catch { return []; } };
+      out.journal = list('journal', '.md');
+      out.ideas = list('ideas', '.md');
+      out.inner = list('inner', '.md');
+      out.trace = list('trace', '.jsonl');
+      out.raw = list('raw', '.jsonl');
+      return json(res, out);
+    }
+    if (p === '/api/file') {
+      const LIFE = process.env.LIFE_DIR || '/home/ni/life';
+      const name = String(u.searchParams.get('name') || '').replace(/\.\./g, '');
+      const ok = /^(SELF|SOVEREIGNTY|self-knowledge|rules|memory|mood|taste|framework|framework-her|HOW_I_AM_STORED|wishes|others-edits)\.md$/.test(name)
+        || /^(journal|ideas|inner|trace|raw)\/[\w.-]+\.(md|jsonl)$/.test(name);
+      if (!ok) return json(res, { ok: false, message: '不允许读这个文件' }, 403);
+      try {
+        let t = fs.readFileSync(LIFE + '/' + name, 'utf8');
+        const limit = 200000;
+        if (t.length > limit) t = t.slice(0, limit) + `\n\n…（还有 ${t.length - limit} 字，未显示）`;
+        return json(res, { ok: true, name, text: t, size: t.length });
+      } catch (e) { return json(res, { ok: false, message: e.message }, 404); }
+    }
     if (p === '/api/status') {
       const [proc, login] = await Promise.all([procList(), loginInfo()]);
       let mood = '';
-      try { mood = fs.readFileSync('__MIKU_HOME__/mood.md', 'utf8'); } catch {}
+      try { mood = fs.readFileSync('/home/ni/life/mood.md', 'utf8'); } catch {}
       let vision = null;
       try {
         const { available } = await import('../src/services/vision.mjs');
@@ -1040,12 +1336,12 @@ const server = http.createServer(async (req, res) => {
       } catch {}
       let debugTail = [];
       try {
-        debugTail = fs.readFileSync('__MIKU_ROOT__/bot/debug-chat.jsonl', 'utf8')
+        debugTail = fs.readFileSync('/root/qqbot-v5/bot/debug-chat.jsonl', 'utf8')
           .split('\n').filter(Boolean).map((l) => JSON.parse(l)).slice(-8);
       } catch {}
       let herClock = null;
       try {
-        const stc = JSON.parse(fs.readFileSync('__MIKU_ROOT__/bot/state.json', 'utf8'));
+        const stc = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/state.json', 'utf8'));
         herClock = {
           awakeIn: stc.nextWakeMinutes || 0,
           nextWakeAt: stc.nextWakeAt || 0,
@@ -1057,12 +1353,12 @@ const server = http.createServer(async (req, res) => {
       } catch {}
       let nextWake = null;
       try {
-        const stx = JSON.parse(fs.readFileSync('__MIKU_ROOT__/bot/state.json', 'utf8'));
+        const stx = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/state.json', 'utf8'));
         if (stx.nextWakeAt) nextWake = { at: stx.nextWakeAt, minutes: stx.nextWakeMinutes || 0, by: stx.nextWakeBy || '' };
       } catch {}
       let loginHealth = null;
       try {
-        const o = JSON.parse(fs.readFileSync('__MIKU_ROOT__/bot/.online', 'utf8'));
+        const o = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/.online', 'utf8'));
         loginHealth = { online: !!o.online, state: o.state || 'unknown', badStreak: o.badStreak || 0, at: o.at };
       } catch {}
       let errs = [];
@@ -1072,7 +1368,7 @@ const server = http.createServer(async (req, res) => {
       } catch {}
       let taste = { like: [], dislike: [], watch: [] };
       try {
-        const tt = fs.readFileSync('__MIKU_HOME__/taste.md', 'utf8');
+        const tt = fs.readFileSync('/home/ni/life/taste.md', 'utf8');
         const grab = (title) => {
           const m = tt.match(new RegExp('## ' + title + '([\\s\\S]*?)(?=\\n## |$)'));
           return m ? m[1].split('\n').filter((l) => l.trim().startsWith('- ')).map((l) => l.trim().slice(2)) : [];
@@ -1081,7 +1377,7 @@ const server = http.createServer(async (req, res) => {
       } catch {}
       let ideas = [];
       try {
-        const dir = '__MIKU_HOME__/ideas';
+        const dir = '/home/ni/life/ideas';
         const files = fs.readdirSync(dir).filter((f) => f.endsWith('.md')).sort().slice(-10).reverse();
         for (const f of files) {
           const txt = fs.readFileSync(path.join(dir, f), 'utf8');
@@ -1092,7 +1388,7 @@ const server = http.createServer(async (req, res) => {
       let frames = [];
       let framesEvicted = '';
       try {
-        const ft = fs.readFileSync('__MIKU_HOME__/framework.md', 'utf8');
+        const ft = fs.readFileSync('/home/ni/life/framework.md', 'utf8');
         const m = ft.match(/## 我自己想到的([\s\S]*?)(?=\n## |$)/);
         if (m) {
           frames = m[1].split('\n').filter((l) => /^- \[f\d+\]/.test(l.trim()))
@@ -1100,13 +1396,13 @@ const server = http.createServer(async (req, res) => {
         }
       } catch {}
       try {
-        const ed = fs.readFileSync('__MIKU_HOME__/others-edits.md', 'utf8');
+        const ed = fs.readFileSync('/home/ni/life/others-edits.md', 'utf8');
         const rows = ed.split('\n').filter((l) => l.includes('容量') || l.includes('frame_evicted'));
         framesEvicted = rows.slice(-1)[0] || '';
       } catch {}
       let wishes = [];
       try {
-        const wt = fs.readFileSync('__MIKU_HOME__/wishes.md', 'utf8');
+        const wt = fs.readFileSync('/home/ni/life/wishes.md', 'utf8');
         wishes = wt.split('\n').filter((l) => /^\| w\d+ \|/.test(l)).map((l) => {
           const c = l.split('|').map((x) => x.trim());
           return { id: c[1], status: c[2], what: c[3], note: c[4] || '' };
@@ -1114,7 +1410,7 @@ const server = http.createServer(async (req, res) => {
       } catch {}
       let goals = { doing: [], want: [], dropped: [] };
       try {
-        const gt = fs.readFileSync('__MIKU_HOME__/goals.md', 'utf8');
+        const gt = fs.readFileSync('/home/ni/life/goals.md', 'utf8');
         const sec = (name) => {
           const m = gt.match(new RegExp('## ' + name + '\\n([\\s\\S]*?)(?=\\n## |$)'));
           return (m ? m[1] : '').split('\n').map((x) => x.replace(/^-\s*/, '').trim()).filter(Boolean);
@@ -1128,12 +1424,12 @@ const server = http.createServer(async (req, res) => {
       } catch {}
       let queuedCount = 0;
       try {
-        queuedCount = fs.readFileSync('__MIKU_ROOT__/bot/retry_queue.jsonl', 'utf8').split('\n').filter(Boolean).length;
+        queuedCount = fs.readFileSync('/root/qqbot-v5/bot/retry_queue.jsonl', 'utf8').split('\n').filter(Boolean).length;
       } catch {}
       let tokensToday = null, tokensHour = null;
       try {
         const { execSync } = await import('node:child_process');
-        const lines = fs.readFileSync('__MIKU_ROOT__/bot/usage.jsonl', 'utf8').split('\n').filter(Boolean);
+        const lines = fs.readFileSync('/root/qqbot-v5/bot/usage.jsonl', 'utf8').split('\n').filter(Boolean);
         const today = new Date(); today.setHours(0, 0, 0, 0);
         let inTok = 0, outTok = 0, n = 0;
         for (const l of lines) {
@@ -1162,7 +1458,7 @@ const server = http.createServer(async (req, res) => {
       try {
         let born = 0;
         try {
-          const first = fs.readFileSync('__MIKU_HOME__/chat-archive.jsonl', 'utf8').split('\n').find(Boolean);
+          const first = fs.readFileSync('/home/ni/life/chat-archive.jsonl', 'utf8').split('\n').find(Boolean);
           born = JSON.parse(first).at || 0;
         } catch {}
         const st0 = readState();
@@ -1174,7 +1470,7 @@ const server = http.createServer(async (req, res) => {
         const live = lastTick ? Math.min(Date.now() - lastTick, 90e3) : 0;
         lifetime = { born, now: Date.now(), uptimeFrom: started, accumMs: accum + (live > 0 ? live : 0), liveMs: live };
       } catch {}
-      return json(res, { lifetime, proc, login, qr: qrInfo(), state: readState(), channel: (((readCfg().channels || {}).active) || readState().channel || 'qq'), cfg: (() => { const c = readCfg(); try { const w = JSON.parse(fs.readFileSync('__MIKU_ROOT__/bot/schedule.json','utf8')); if (w && w.activeStart) { c.schedule = { ...c.schedule, activeStart: w.activeStart, activeEnd: w.activeEnd }; } } catch {} return c; })(), mood, innerThoughts, tokensToday, tokensHour, queuedCount, goals, clock, wishes, debugTail, vision, frames, framesEvicted, taste, errs, loginHealth, nextWake, herClock, ideas });
+      return json(res, { lifetime, proc, login, qr: qrInfo(), state: readState(), channel: (((readCfg().channels || {}).active) || readState().channel || 'qq'), cfg: (() => { const c = readCfg(); try { const w = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/schedule.json','utf8')); if (w && w.activeStart) { c.schedule = { ...c.schedule, activeStart: w.activeStart, activeEnd: w.activeEnd }; } } catch {} return c; })(), mood, innerThoughts, tokensToday, tokensHour, queuedCount, goals, clock, wishes, debugTail, vision, frames, framesEvicted, taste, errs, loginHealth, nextWake, herClock, ideas });
     }
     if (p === '/api/events') {
       const since = Number(u.searchParams.get('since') || 0);
@@ -1186,17 +1482,17 @@ const server = http.createServer(async (req, res) => {
       const read = (f) => { try { return fs.readFileSync(f, 'utf8'); } catch { return ''; } };
       let journal = [];
       try {
-        journal = fs.readdirSync('__MIKU_HOME__/journal')
+        journal = fs.readdirSync('/home/ni/life/journal')
           .filter((f) => f.endsWith('.md'))
           .sort().reverse().slice(0, 3)
-          .map((f) => ({ name: f, content: read('__MIKU_HOME__/journal/' + f), mtime: fs.statSync('__MIKU_HOME__/journal/' + f).mtimeMs }));
+          .map((f) => ({ name: f, content: read('/home/ni/life/journal/' + f), mtime: fs.statSync('/home/ni/life/journal/' + f).mtimeMs }));
       } catch {}
       let notes = [];
-      try { notes = fs.readdirSync('__MIKU_HOME__/notes').filter((f) => f.endsWith('.md')).slice(0, 10); } catch {}
+      try { notes = fs.readdirSync('/home/ni/life/notes').filter((f) => f.endsWith('.md')).slice(0, 10); } catch {}
       return json(res, {
-        self: read('__MIKU_HOME__/SELF.md'),
-        rules: read('__MIKU_HOME__/rules.md'),
-        memory: read('__MIKU_HOME__/memory.md'),
+        self: read('/home/ni/life/SELF.md'),
+        rules: read('/home/ni/life/rules.md'),
+        memory: read('/home/ni/life/memory.md'),
         journal, notes,
       });
     }
@@ -1242,7 +1538,7 @@ const server = http.createServer(async (req, res) => {
     }
     if (p === '/api/bili/png') {
       try {
-        const buf = fs.readFileSync('__MIKU_ROOT__/bot/bili_qr.png');
+        const buf = fs.readFileSync('/root/qqbot-v5/bot/bili_qr.png');
         res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'no-store' });
         return res.end(buf);
       } catch { return json(res, { ok: false, message: '还没有二维码' }); }
@@ -1268,7 +1564,7 @@ const server = http.createServer(async (req, res) => {
       return res.end(buf);
     }
     if (p === '/api/qr/refresh') {
-      const r = await sh('__MIKU_ROOT__/qr.sh', 120000);
+      const r = await sh('/root/qqbot-v5/qr.sh', 120000);
       return json(res, { ok: r.ok, message: r.ok ? '新二维码已生成，去相册选最新那张' : '生成失败：' + r.stderr.slice(0, 120) });
     }
     if (p === '/api/qr/save') {
@@ -1287,14 +1583,14 @@ const server = http.createServer(async (req, res) => {
         return json(res, { ok: true, message: '已经是登录状态：' + before.nickname + '，不用再确认' });
       }
       // 用已保存的会话试一次快速登录
-      await sh('__MIKU_ROOT__/start_napcat.sh', 120000);
+      await sh('/root/qqbot-v5/start_napcat.sh', 120000);
       await new Promise((z) => setTimeout(z, 8000));
       const li = await loginInfo();
       if (li.ok) return json(res, { ok: true, message: '已登录：' + li.nickname });
       // 快速登录失败 = 会话票据失效，只能扫码；顺手生成新码
       let qrMsg = '';
       try {
-        const q = await sh('__MIKU_ROOT__/qr.sh', 150000);
+        const q = await sh('/root/qqbot-v5/qr.sh', 150000);
         qrMsg = q.ok ? '，已生成新的二维码' : '，二维码生成失败';
       } catch {}
       return json(res, {
@@ -1303,18 +1599,18 @@ const server = http.createServer(async (req, res) => {
       });
     }
     if (p === '/api/start') {
-      const r = await sh('__MIKU_ROOT__/start_all.sh', 180000);
+      const r = await sh('/root/qqbot-v5/start_all.sh', 180000);
       return json(res, { ok: r.ok, message: r.ok ? '已启动，稍等十几秒' : '启动失败' });
     }
     if (p === '/api/stop') {
       // 用统一脚本：六个进程全停（之前漏了 service/life/panel）
-      sh('__MIKU_ROOT__/stop_all.sh', 30000).catch(() => {});
+      sh('/root/qqbot-v5/stop_all.sh', 30000).catch(() => {});
       return json(res, { ok: true, message: '正在全部停止…' });
     }
     if (p === '/api/restart') {
       await sh('pkill -f "supervisor.s[h]"; pkill -f "bot.mjs daemo[n]"; pkill -f "napcat_loade[r]"', 30000);
       await new Promise((r) => setTimeout(r, 3000));
-      const r2 = await sh('__MIKU_ROOT__/start_all.sh', 180000);
+      const r2 = await sh('/root/qqbot-v5/start_all.sh', 180000);
       return json(res, { ok: r2.ok, message: '已重启' });
     }
             if (p === '/api/config' && req.method === 'POST') {
@@ -1351,13 +1647,13 @@ const server = http.createServer(async (req, res) => {
       // 时间窗口：写独立文件 bot/schedule.json（config.json 会被别的进程整文件重写）
       if (changed) {
         try {
-          fs.writeFileSync('__MIKU_ROOT__/bot/schedule.json',
+          fs.writeFileSync('/root/qqbot-v5/bot/schedule.json',
             JSON.stringify({ activeStart: cfg.schedule.activeStart, activeEnd: cfg.schedule.activeEnd }, null, 2));
         } catch {}
       }
       if (changed) {
         try {
-          fs.appendFileSync('__MIKU_ROOT__/bot/config-changes.log',
+          fs.appendFileSync('/root/qqbot-v5/bot/config-changes.log',
             `[${new Date().toISOString()}] 活跃时段 ${before.start}–${before.end} → ${cfg.schedule.activeStart}–${cfg.schedule.activeEnd}\n`);
         } catch {}
       }
@@ -1392,7 +1688,7 @@ server.listen(PORT, '0.0.0.0', async () => {
   // 启动时自检页面脚本，语法错了要当场喊出来（否则整页静默不工作）
   try {
     const { execFileSync } = await import('node:child_process');
-    execFileSync(process.execPath, ['__MIKU_ROOT__/panel/check-page.mjs'], { stdio: 'pipe' });
+    execFileSync(process.execPath, ['/root/qqbot-v5/panel/check-page.mjs'], { stdio: 'pipe' });
     console.log('页面脚本自检：OK');
   } catch (e) {
     console.log('⚠ 页面脚本语法错误，浏览器里会全部显示为 —');

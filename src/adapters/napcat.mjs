@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
 // QQ 通道（NapCat + OneBot HTTP）
 import { BaseAdapter } from './base.mjs';
 

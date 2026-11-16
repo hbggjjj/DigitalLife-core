@@ -1,12 +1,11 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
 #!/usr/bin/env node
 // 把永久归档渲染成可读的 Markdown
 import fs from 'node:fs';
 import path from 'node:path';
 
-const LIFE = process.env.LIFE_DIR || '__MIKU_HOME__';
+const LIFE = process.env.LIFE_DIR || '/home/ni/life';
 const ARC = path.join(LIFE, 'chat-archive.jsonl');
-const out = process.argv[2] || path.join('__MIKU_ROOT__/exports', '对话全档.md');
+const out = process.argv[2] || path.join('/root/qqbot-v5/exports', '对话全档.md');
 
 let rows = [];
 try {

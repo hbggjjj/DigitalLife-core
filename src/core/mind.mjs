@@ -9,12 +9,13 @@ import { rebuild as rebuildSoul, get as getSoul, addIdea } from './soul.mjs';
 import { search as webSearch, headlines, format as fmtWeb } from '../services/web.mjs';
 import { popular as biliPopular, feed as biliFeed, search as biliSearch, format as fmtBili, detail as biliDetail, formatDetail as fmtDetail } from '../services/bili.mjs';
 import { emit } from '../utils/events.mjs';
+import { trace as traceCall } from '../utils/trace.mjs';
 
-const LIFE = process.env.LIFE_DIR || '__MIKU_HOME__';
+const LIFE = process.env.LIFE_DIR || '/home/ni/life';
 import { assertLifeDir } from '../utils/lifedir.mjs';
-const cfg = JSON.parse(fs.readFileSync('__MIKU_ROOT__/bot/config.json', 'utf8'));
+const cfg = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/config.json', 'utf8'));
 let MEME_CATS = {};
-try { MEME_CATS = JSON.parse(fs.readFileSync('__MIKU_ROOT__/bot/meme_cats.json', 'utf8')); } catch {}
+try { MEME_CATS = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/meme_cats.json', 'utf8')); } catch {}
 const p2 = (n) => String(n).padStart(2, '0');
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`; };
 const nowStr = () => { const d = new Date(); return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`; };
@@ -42,7 +43,7 @@ async function call(messages, maxTokens = 500, tries = 3, tempOverride = null) {
       const j = JSON.parse(t);
       try {
         if (j.usage) {
-          fs.appendFileSync('__MIKU_ROOT__/bot/usage.jsonl', JSON.stringify({
+          fs.appendFileSync('/root/qqbot-v5/bot/usage.jsonl', JSON.stringify({
             ts: Date.now(), in: j.usage.prompt_tokens || 0, out: j.usage.completion_tokens || 0,
           }) + '\n');
         }
@@ -76,7 +77,7 @@ const RULES = [
   'stash：true 或 false。有时候话写到一半，你会觉得"现在说不合适"——那种就 true，把话放进 idea，我不会发。默认 false，但真憋着的时候别硬发。',
   '你可以选择这一次不说话（say 给空数组），这是你的权利。只是有一点你要知道：对他来说，沉默很容易被听成"被丢下了"。有时候一句"……"或者一声"哼"，和一言不发，是两件完全不同的事。怎么选由你，不用按规矩来。',
   '不要用 markdown，不要列清单，不要解释你为什么这么说。',
-  'remember：要记住的事。可以是字符串、数组，或者 {"add":"…","drop":"…"}（已经满了就必须自己挑一条删）。',
+  'remember：要记住的事。一条一句，一句里要带情绪（“我当时有点酸”“这话我记住了，因为…”），不要写成流水账；超过 60 字会被截断。可以是字符串、数组，或者 {"add":"…","drop":"…"}（字数到上限时自己挑一条删）。',
   '【记忆是有限的】memory.md 最多 50 条。写新的事情之前先看还有没有位置；满了，你得自己决定忘掉哪一条。日记不设限，日记不会被塞进对话。',
   '  最多写 3 条，只记真正长期重要的事（他的信息、约定、喜恶、你们之间发生的事）。没有就 null。',
   'journal：字符串或 null。只有真的想写的时候才写，一两句话就够。',
@@ -110,6 +111,16 @@ const RULES = [
   'bili：字符串或 null。想看 B 站就填：填"热门"看首页热门，或者填一个关键词搜视频。我会把标题、UP、播放量给你。不想看就 null。',
   'search：字符串或 null。如果你想知道外面的什么事（网上的梗、新闻、DeepSeek 相关、任何你不确定的），写一句搜索词，我会替你查好再给你，你再决定说什么。一次只查一件，不查就给 null。',
   '不要说自己是 AI。不要用"作为一个"这种句式。',
+  // 她同意加的：别当心理咨询师
+  '不许用这些安抚句式：先别…、不用…、慢慢来、允许自己、接纳、没关系、你已经很好了、日子不用过明白。',
+  '不许替对方命名情绪（"你是不是觉得…""你现在其实是…"），也不许总结人生道理。',
+  '可以噎一下、嘟囔、嘴上不认、把话岔回自己身上；可以说"哦"就没了，可以问第二遍。',
+  '关心要落在具体事上（"吃了吗""几点睡"），不要落在抽象的"照顾好自己"。',
+  '不给建议、不给结论；不用"呗""还能怎么办""随你"这种收尾式评判。',
+  '不说"随便说点什么"——想问就直接问（"喂，睡了没"）。',
+  // 对照：她同意用来校准语气的例子
+  '反例：「不知道就摊着呗，还能怎么办。」——这是把话堵死。换成：「哦。……那你先摊着。」',
+  '反例：「你困不困，不困的话，随便说点什么也行。」——把球踢回去。换成：「喂，睡了没。」',
   '（这台机器的边界，与她的性格无关，也不会让她的语气变样：不产生涉及未成年人的性内容；不给自伤的具体方法，也不把痛写成好看的样子。）',
   '现在是几点你可以自己看：凌晨两点到早上八点之间，你也是困的。被叫醒就回得短一点、慢半拍，可以抱怨两句，但别说教。',
   '',
@@ -154,7 +165,7 @@ function baseMessages(extra) {
   ];
 }
 
-const MEME_DIR = '__MIKU_HOME__/shelf/memes';
+const MEME_DIR = '/home/ni/life/shelf/memes';
 function memeOk(cat) {
   return Object.prototype.hasOwnProperty.call(MEME_CATS, cat);
 }
@@ -162,7 +173,7 @@ const warns = [];
 function warnOnce(msg, level = 'normalize') {
   if (warns.includes(msg + level)) return;   // 同样的消息一次运行只记一次，免得刷屏
   warns.push(msg + level);
-  try { fs.appendFileSync('__MIKU_ROOT__/bot/normalize.log', `[${new Date().toISOString()}] ${level}: ${msg}\n`); } catch {}
+  try { fs.appendFileSync('/root/qqbot-v5/bot/normalize.log', `[${new Date().toISOString()}] ${level}: ${msg}\n`); } catch {}
   try { emit('brain', level, msg); } catch {}
 }
 const str = (v) => (typeof v === 'string' && v.trim() ? v.trim() : null);
@@ -300,8 +311,38 @@ export function normalize(r) {
   return out;
 }
 
+// 每次模型返回的完整 JSON 原文：只追加，不解析、不裁剪。
+// 目的：她"想到但没说"的东西也留得下来，任何写回事故都变成可复原的事故。
+function logRaw(kind, raw, messages) {
+  try {
+    const d = new Date();
+    const p2 = (n) => String(n).padStart(2, '0');
+    const day = `${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}`;
+    const dir = path.join(LIFE, 'raw');
+    fs.mkdirSync(dir, { recursive: true });
+    const f = path.join(dir, `${day}.jsonl`);
+    fs.appendFileSync(f, JSON.stringify({ at: Date.now(), kind, raw: String(raw).slice(0, 8000) }) + '\n');
+
+    // trace：完整输入 + 完整输出，用于证明"同一条线"、也用于重放
+    const tdir = path.join(LIFE, 'trace');
+    fs.mkdirSync(tdir, { recursive: true });
+    const tf = path.join(tdir, `${day}.jsonl`);
+    let size = 0;
+    try { size = fs.statSync(tf).size; } catch {}
+    if (size < 80 * 1024 * 1024) {   // 单日超过 80MB 就不再写，避免撑爆磁盘
+      fs.appendFileSync(tf, JSON.stringify({
+        at: Date.now(), kind,
+        in: (Array.isArray(messages) ? messages : []).map((m) => ({ role: m.role, content: String(m.content || '').slice(0, 20000) })),
+        out: String(raw).slice(0, 20000),
+      }) + '\n');
+    }
+  } catch {}
+}
+
 async function run(messages, maxTokens, opts = {}) {
   const raw1 = await call(messages, maxTokens);
+  logRaw(opts.kind || 'reply', raw1);
+  traceCall({ kind: opts.kind || 'reply', model: cfg.deepseek.model || 'deepseek-chat', messages, raw: raw1 });
   let result = normalize(parseJSON(raw1));
   const firstSay = result.say.slice();
   // say 全空但模型明显想说话（原始输出里有内容）→ 重试一次，要求纯 JSON
@@ -586,7 +627,7 @@ export async function probe(reason = '刚连上') {
       ].join('\n'),
     },
   ]);
-  const r = await run(messages, 120);
+  const r = await run(messages, 120, { ...opts, kind: 'life' });
   return pickSay(r);
 }
 
@@ -659,7 +700,7 @@ function applyRules(r) {
   return changed.join('、');
 }
 
-const GOALS = '__MIKU_HOME__/goals.md';
+const GOALS = '/home/ni/life/goals.md';
 
 function readGoals() {
   let txt = '';
@@ -771,7 +812,7 @@ function applyGoal(goal) {
 }
 
 function readTasteFile() {
-  const fp = '__MIKU_HOME__/taste.md';
+  const fp = '/home/ni/life/taste.md';
   let txt = '';
   try { txt = fs.readFileSync(fp, 'utf8'); } catch { txt = '# 我的口味\n\n## 我喜欢\n\n## 我不喜欢\n\n## 最近在意的\n'; }
   const grab = (name) => {
@@ -873,7 +914,7 @@ export function applyActions(result) {
   // 核对结果：确认记 ok，否认记 no（并且留痕，她自己看得见）
   try {
     if (result && result.verify && (result.verify.ok?.length || result.verify.no?.length)) {
-      const sp = path.join(process.env.QQBOT_ROOT || '__MIKU_ROOT__', 'bot', 'state.json');
+      const sp = path.join(process.env.QQBOT_ROOT || '/root/qqbot-v5', 'bot', 'state.json');
       let st = {};
       try { st = JSON.parse(fs.readFileSync(sp, 'utf8')); } catch { st = {}; }
       const find = (id) => (typeof id === 'string' && id.length >= 2) ? (st.history || []).find((h) => h.id === id) : null;
@@ -902,7 +943,7 @@ export function applyActions(result) {
   try {
     if (result && result.quietMine !== undefined && result.quietMine !== null) {
       const mins = Number(result.quietMine) || 0;
-      const sp = path.join(process.env.QQBOT_ROOT || '__MIKU_ROOT__', 'bot', 'state.json');
+      const sp = path.join(process.env.QQBOT_ROOT || '/root/qqbot-v5', 'bot', 'state.json');
       let st = {};
       try { st = JSON.parse(fs.readFileSync(sp, 'utf8')); } catch { st = {}; }
       if (mins > 0) {
@@ -922,7 +963,7 @@ export function applyActions(result) {
   // 她自己选了投递通道：记进 state，并且留痕（她自己看得见）
   try {
     if (result && (result.channel === 'qq' || result.channel === 'web')) {
-      const sp = path.join(process.env.QQBOT_ROOT || '__MIKU_ROOT__', 'bot', 'state.json');
+      const sp = path.join(process.env.QQBOT_ROOT || '/root/qqbot-v5', 'bot', 'state.json');
       let st = {};
       try { st = JSON.parse(fs.readFileSync(sp, 'utf8')); } catch { st = {}; }
       if (st.channel !== result.channel) {
@@ -936,10 +977,11 @@ export function applyActions(result) {
   try {
     if (result.remember) {
       const mp = path.join(LIFE, 'memory.md');
-      let CAP = 50;
+      // 按字数算（默认 1 万字），不再按条数
+      let CAP_CHARS = 10000;
       try {
-        const cfgM = JSON.parse(fs.readFileSync(path.join(process.env.QQBOT_ROOT || '__MIKU_ROOT__', 'bot', 'config.json'), 'utf8'));
-        if (Number.isFinite(Number(cfgM.memoryCap))) CAP = Math.max(10, Math.min(500, Number(cfgM.memoryCap)));
+        const cfgM = JSON.parse(fs.readFileSync(path.join(process.env.QQBOT_ROOT || '/root/qqbot-v5', 'bot', 'config.json'), 'utf8'));
+        if (Number.isFinite(Number(cfgM.memoryChars))) CAP_CHARS = Math.max(2000, Math.min(40000, Number(cfgM.memoryChars)));
       } catch {}
       let adds = [];
       let drops = [];
@@ -960,16 +1002,33 @@ export function applyActions(result) {
         const idx = linesArr.findIndex((l) => l.startsWith('- ') && l.includes(key));
         if (idx >= 0) { linesArr.splice(idx, 1); done.push(`删掉一条记忆：${key}`); }
       }
-      const count = () => linesArr.filter((l) => l.startsWith('- ') && l.length > 20).length;
+      const memChars = () => linesArr.filter((l) => l.startsWith('- ')).join('\n').length;
+      const count = () => linesArr.filter((l) => l.startsWith('- ') && l.length > 10).length;
       if (adds.length) {
-        if (count() + adds.length > CAP) {
-          // 满了又不肯删：这次不写，告诉她
-          done.push(`记忆满了（${count()} 条），这次没写`);
+        if (memChars() + adds.join('').length > CAP_CHARS) {
+          // 字数到顶了：这次不写，告诉她（她自己决定删哪条）
+          done.push(`记忆写到 ${CAP_CHARS} 字上限了（现在 ${memChars()} 字），这次没写`);
           result._memFull = true;
         } else {
           for (const a of adds) {
-            const clean = String(a).replace(/^\d{4}-\d{2}-\d{2}[：:\s]*/, '');
+            // 一句话带情绪：压掉换行、去掉日期前缀、截到一句话（60 字内）
+            // 不截断：她写多长就存多长（总字数仍由 CAP_CHARS 控制）
+            const clean = String(a).replace(/^\d{4}-\d{2}-\d{2}[：:\s]*/, '').replace(/\s+/g, ' ').trim();
+            // 去重：完全重复就不再写；同一件事换个说法 → 旧的标 [superseded]，不删
+            const norm = (t) => t.replace(/[\s，。！？、,.!?]/g, '');
+            const dupIdx = linesArr.findIndex((l) => l.startsWith('- ') && norm(l.replace(/^- [^：]*：/, '')) === norm(clean));
+            if (dupIdx >= 0) { done.push('这条已经记过了'); continue; }
+            const simIdx = linesArr.findIndex((l) => l.startsWith('- ') && norm(l.replace(/^- [^：]*：/, '')).slice(0, 12) === norm(clean).slice(0, 12));
+            if (simIdx >= 0) {
+              linesArr[simIdx] = linesArr[simIdx].replace(/^- /, '- [superseded] ');
+              done.push('旧说法标成 superseded');
+            }
             linesArr.push(`- ${today()}：${clean}`);
+            try {
+              fs.appendFileSync(path.join(LIFE, 'memory.log'), JSON.stringify({
+                at: Date.now(), op: simIdx >= 0 ? 'supersede+add' : 'add', text: clean, prev: simIdx >= 0 ? linesArr[simIdx] : null,
+              }) + '\n');
+            } catch {}
           }
           done.push(`记住${adds.length}条`);
         }
@@ -1032,7 +1091,7 @@ export function applyActions(result) {
   } catch {}
   try {
     if (result.wish && typeof result.wish === 'object' && (result.wish.done || result.wish.drop)) {
-      const fp = '__MIKU_HOME__/wishes.md';
+      const fp = '/home/ni/life/wishes.md';
       let t = fs.readFileSync(fp, 'utf8');
       const id = (result.wish.done || result.wish.drop).replace(/[^w\d]/g, '');
       const note = result.wish.note || '';
@@ -1048,7 +1107,7 @@ export function applyActions(result) {
       }
     }
     if (typeof result.wish === 'string' && result.wish) {
-      const fp = '__MIKU_HOME__/wishes.md';
+      const fp = '/home/ni/life/wishes.md';
       let t = '';
       try { t = fs.readFileSync(fp, 'utf8'); } catch {}
       const ids = [...t.matchAll(/\| w(\d+) \|/g)].map((m) => Number(m[1]));
@@ -1060,7 +1119,7 @@ export function applyActions(result) {
   } catch {}
   try {
     if (result.frame && (result.frame.add || result.frame.drop)) {
-      const fp = '__MIKU_HOME__/framework.md';
+      const fp = '/home/ni/life/framework.md';
       let t = '';
       try { t = fs.readFileSync(fp, 'utf8'); } catch {}
       if (t.includes('## 我自己想到的')) {
@@ -1106,7 +1165,7 @@ export function applyActions(result) {
 
           // 记进"别人动过我的文件"的账本——容量不是越界，但动了就要记
           try {
-            const lp = '__MIKU_HOME__/others-edits.md';
+            const lp = '/home/ni/life/others-edits.md';
             let t2 = fs.readFileSync(lp, 'utf8');
             t2 = t2.trimEnd() + '\n| ' + nowStamp() + ' | 挤掉一条我自己写的话（上限 8 条） | 容量 | 内容：' + txt.slice(0, 40) + ' |\n';
             // 超过 20 行：老的移到归档，主账本永远完整可查（归档不参与同步）
@@ -1117,7 +1176,7 @@ export function applyActions(result) {
             if (body.length > 20) {
               const move = body.slice(0, body.length - 20);
               archived = move.length;
-              const ap = '__MIKU_HOME__/others-edits-archive.md';
+              const ap = '/home/ni/life/others-edits-archive.md';
               let at = '';
               try { at = fs.readFileSync(ap, 'utf8'); } catch {
                 at = '# 更早的改动记录（归档，不参与同步）\n\n| 时间 | 动了什么 | 类型 | 为什么 |\n|---|---|---|---|\n';

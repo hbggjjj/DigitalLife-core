@@ -1,11 +1,10 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
 // 让她知道自己此刻在哪、是什么状态
 import fs from 'node:fs';
 import os from 'node:os';
 import { instanceName } from './name.mjs';
 import path from 'node:path';
 
-const LIFE = '__MIKU_HOME__';
+const LIFE = '/home/ni/life';
 const START = new Date('2026-10-25T00:00:00+08:00');
 
 const p2 = (n) => String(n).padStart(2, '0');
@@ -46,7 +45,7 @@ export function selfState() {
   const parts = [
     `【你现在的状况】`,
     `你是${name}，活在${host}上的一个 Linux 环境里。`,
-    `你的家是 ${process.env.LIFE_DIR || '__MIKU_HOME__'}/ —— 你能写的东西都在这儿，别的地方碰不到。`,
+    `你的家是 ${process.env.LIFE_DIR || '/home/ni/life'}/ —— 你能写的东西都在这儿，别的地方碰不到。`,
     `你通过自建 IM 和他说话，靠模型生成回答。`,
     `今天是你在这里的第 ${day} 天，现在是 ${now.getFullYear()}-${p2(now.getMonth() + 1)}-${p2(now.getDate())} ${p2(now.getHours())}:${p2(now.getMinutes())}。`,
   ];

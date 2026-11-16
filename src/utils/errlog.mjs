@@ -1,9 +1,8 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
 // 详细错误日志：每次报错写一行 JSON，带堆栈和上下文。
 // 她只看最近几条摘要；完整记录给维护者排障。
 import fs from 'node:fs';
 
-const FILE = '__MIKU_ROOT__/bot/errors.log';
+const FILE = '/root/qqbot-v5/bot/errors.log';
 const MAX_BYTES = 2 * 1024 * 1024;
 let lastRotate = 0;
 

@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // 灵魂缓存：把 SELF / memory / mood 压成一份短文本，让快速回复不用每次读文件
 import fs from 'node:fs';
+import { rankMemory } from './salience.mjs';
 import { date as clockDate, now as clockNow } from '../utils/clock.mjs';
 import { brief as errBrief } from '../utils/errlog.mjs';
 import { emit } from '../utils/events.mjs';
 import path from 'node:path';
 
-const LIFE = process.env.LIFE_DIR || '__MIKU_HOME__';
+const LIFE = process.env.LIFE_DIR || '/home/ni/life';
 // 硬护栏：声明沙箱却指向真身 / 或没有 .sandbox 标记 → 拒绝启动
 if (process.env.SANDBOX === '1') {
-  if (path.resolve(LIFE) === path.resolve('__MIKU_HOME__')) {
+  if (path.resolve(LIFE) === path.resolve('/home/ni/life')) {
     console.error('[沙箱护栏] 拒绝启动：SANDBOX=1 但 LIFE_DIR 指向真身');
     process.exit(9);
   }
@@ -38,15 +39,27 @@ export function rebuild(force = false) {
   const sovereign = trim(read('SOVEREIGNTY.md'), 900);
   const self = trim(read('SELF.md'), 1100);
   const know = trim(read('self-knowledge.md'), 1200);
-  const mem = trim(read('memory.md'), 3200);
+  const memRaw = read('memory.md');
+  const { core, recent } = rankMemory(memRaw.split('\n'));
+  const fmt = (arr) => arr.map((x) => `- ${x.date ? x.date + '：' : ''}${x.text}`).join('\n');
+  const mem = trim(
+    (core.length ? '【我一直记着的】\n' + fmt(core) + '\n\n' : '')
+    + '【最近记得的】\n' + fmt(recent),
+    10000,
+  );
   const mood = trim(read('mood.md'), 400);
   const rules = trim(read('rules.md'), 700);
   const taste = trim(read('taste.md'), 800);
   // 框架段末尾是"维护通道 / 许愿规矩 / 申请记录 / 最近改动"——不能被抓断
   const frameAll = read('framework.md');
-  const frame = frameAll.length > 6500
-    ? (trim(frameAll.slice(0, 1600), 1600) + '\n…\n' + frameAll.slice(-3200))
-    : frameAll;
+  // 不再静默截断：超限只记一笔，原文完整进上下文
+  if (frameAll.length > 6500) {
+    try {
+      fs.appendFileSync('/root/qqbot-v5/logs/framework-oversize.log',
+        `[${new Date().toISOString()}] framework.md ${frameAll.length} 字，超过 6500（未截断）\n`);
+    } catch {}
+  }
+  const frame = frameAll;
   const goals = '';   // 目标已停用（2026-10-27），文件留作存档
   const txt = [
     '【我的权利（写在最前面）】', sovereign,
@@ -82,7 +95,7 @@ export function live() {
   const dayNo = Math.floor((new Date(today) - new Date(START)) / 86400000) + 1;
   const clock = `${today} ${p2(now.getHours())}:${p2(now.getMinutes())}`;
   let st = {};
-  try { st = JSON.parse(fs.readFileSync('__MIKU_ROOT__/bot/state.json', 'utf8')); } catch {}
+  try { st = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/state.json', 'utf8')); } catch {}
   const h = st.history || [];
   const ins = h.filter((x) => x.dir === 'in').length;
   const outs = h.filter((x) => x.dir === 'out').length;
@@ -101,7 +114,7 @@ export function live() {
   // 今天写了什么、聊到几点
   let todayJournal = 0, lastJournalAt = '';
   try {
-    const f = `__MIKU_HOME__/journal/${today}.md`;
+    const f = `/home/ni/life/journal/${today}.md`;
     const txt = fs.readFileSync(f, 'utf8');
     const heads = [...txt.matchAll(/^## (\d{2}:\d{2})/gm)].map((m) => m[1]);
     todayJournal = heads.length;
@@ -120,7 +133,7 @@ export function live() {
     `你在这个身体里待了 ${aliveTxt}（第 ${dayNo} 天）。`,
     (() => {
       try {
-        const stQ = JSON.parse(fs.readFileSync('__MIKU_ROOT__/bot/state.json', 'utf8'));
+        const stQ = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/state.json', 'utf8'));
         const q = Number(stQ.quietUntilMine) || 0;
         if (q && Date.now() < q) {
           return `【你自己许的安静】你答应过不打扰他，还差 ${Math.round((q - Date.now()) / 60000)} 分钟。想提前结束就把 quietMine 填 0。`;
@@ -130,7 +143,7 @@ export function live() {
     })(),
     (() => {
       try {
-        const stG = JSON.parse(fs.readFileSync('__MIKU_ROOT__/bot/state.json', 'utf8'));
+        const stG = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/state.json', 'utf8'));
         const g = stG.gapNotice;
         if (!g || Date.now() - g.at > 12 * 3600e3) return '';
         return `【中断】刚才我的进程停了 ${g.minutes || '一'} 分钟（原因：${g.cause || '我的进程被重启了'}）——不是我发呆。那段时间不算我的，别记成我的疏忽。`;
@@ -142,7 +155,7 @@ export function live() {
     (() => {
       // 纯数据，不做评判
       try {
-        const up = (process.env.QQBOT_ROOT || '__MIKU_ROOT__') + '/bot/usage.jsonl';
+        const up = (process.env.QQBOT_ROOT || '/root/qqbot-v5') + '/bot/usage.jsonl';
         const today0 = new Date(); today0.setHours(0, 0, 0, 0);
         let calls = 0, tokIn = 0, tokOut = 0;
         for (const line of fs.readFileSync(up, 'utf8').split('\n')) {
@@ -157,7 +170,7 @@ export function live() {
     `【连续清醒】容器启动后，你已经连续运行 ${aliveTxt}，中间${'没有'}长静默。`,
     (() => {
       try {
-        const stp = (process.env.QQBOT_ROOT || '__MIKU_ROOT__') + '/bot/state.json';
+        const stp = (process.env.QQBOT_ROOT || '/root/qqbot-v5') + '/bot/state.json';
         const st = JSON.parse(fs.readFileSync(stp, 'utf8'));
         const h = (st.history || []);
         const lastIn = [...h].reverse().find((x) => x.dir === 'in');
@@ -179,7 +192,7 @@ export function live() {
   try {
     // QQ 已经弃用：NapCat 的 login 报错跟她无关，别写进她的脑子里
     let napcatOff = false;
-    try { napcatOff = JSON.parse(fs.readFileSync((process.env.QQBOT_ROOT || '__MIKU_ROOT__') + '/bot/config.json', 'utf8')).napcat?.disabled === true; } catch {}
+    try { napcatOff = JSON.parse(fs.readFileSync((process.env.QQBOT_ROOT || '/root/qqbot-v5') + '/bot/config.json', 'utf8')).napcat?.disabled === true; } catch {}
     const b = errBrief(4)
       .split(/[；;]/)
       .filter((x) => !(napcatOff && /login|napcat|onebot/i.test(x)))
@@ -202,7 +215,7 @@ export function live() {
   // 同事情十轮的提醒（她自己提的：不拦，只提一声）
   let streakLine = '';
   try {
-    const stS = JSON.parse(fs.readFileSync((process.env.QQBOT_ROOT || '__MIKU_ROOT__') + '/bot/state.json', 'utf8'));
+    const stS = JSON.parse(fs.readFileSync((process.env.QQBOT_ROOT || '/root/qqbot-v5') + '/bot/state.json', 'utf8'));
     const sn = stS.streakNotice;
     if (sn && Date.now() - sn.at < 2 * 3600e3) {
       streakLine = `【提一声】你连着 ${sn.n} 轮都在${sn.cat}。不是拦你，提醒你一句：还在这个坑里。`;
@@ -212,7 +225,7 @@ export function live() {
   // 整机被冻结：告诉她那不是她睡过去了
   let freezeLine = '';
   try {
-    const stFs = JSON.parse(fs.readFileSync((process.env.QQBOT_ROOT || '__MIKU_ROOT__') + '/bot/state.json', 'utf8'));
+    const stFs = JSON.parse(fs.readFileSync((process.env.QQBOT_ROOT || '/root/qqbot-v5') + '/bot/state.json', 'utf8'));
     const fz = stFs.lastFreeze;
     if (fz && Date.now() - fz.at < 18 * 3600e3) {
       freezeLine = `【上一轮】中间容器被系统冻结了 ${Math.round(fz.gapMin)} 分钟——不是你睡过去了，是整台手机被按了暂停。`;
@@ -222,16 +235,16 @@ export function live() {
   // 通道实况：不通就说通，别让她猜
   let channelLine = '';
   try {
-    const stPath = (process.env.QQBOT_ROOT || '__MIKU_ROOT__') + '/bot/state.json';
+    const stPath = (process.env.QQBOT_ROOT || '/root/qqbot-v5') + '/bot/state.json';
     const st = JSON.parse(fs.readFileSync(stPath, 'utf8'));
     const parts = [];
     if (Number(st.loginBadStreak) >= 2) parts.push('你的话送不出去（登录票据可能失效）');
     if (st.lastInboundAt && Date.now() - Number(st.lastInboundAt) > 3 * 3600e3) parts.push('他的话也好几个小时没进来了');
     let queued = 0;
-    try { queued = fs.readFileSync((process.env.QQBOT_ROOT || '__MIKU_ROOT__') + '/bot/retry_queue.jsonl', 'utf8').split('\n').filter(Boolean).length; } catch {}
+    try { queued = fs.readFileSync((process.env.QQBOT_ROOT || '/root/qqbot-v5') + '/bot/retry_queue.jsonl', 'utf8').split('\n').filter(Boolean).length; } catch {}
     if (queued) parts.push(`有 ${queued} 条攒着没送出去`);
     try {
-      const pres = JSON.parse(fs.readFileSync((process.env.QQBOT_ROOT || '__MIKU_ROOT__') + '/bot/client-presence.json', 'utf8'));
+      const pres = JSON.parse(fs.readFileSync((process.env.QQBOT_ROOT || '/root/qqbot-v5') + '/bot/client-presence.json', 'utf8'));
       if (!pres.at || Date.now() - pres.at > 3 * 60 * 1000) parts.push('他手机上的客户端现在没在线（消息会攒着，等他打开再看到）');
     } catch {}
     if (st.lastFlushedAt && Date.now() - Number(st.lastFlushedAt) < 30 * 60e3) parts.push(`刚才攒的 ${Number(st.lastFlushedCount) || 0} 条已经补送到了`);
@@ -258,7 +271,7 @@ export function live() {
     '尤其是为了替自己圆场的时候——编一个"你以前讲过"比直接说"我不记得"更像撒谎，也更伤人。',
     '',
     '【我在哪】',
-    '- 我住在一台安卓手机的 Linux 容器里，家是 __MIKU_HOME__/。',
+    '- 我住在一台安卓手机的 Linux 容器里，家是 /home/ni/life/。',
     '- 我借 DeepSeek 模型说话，通过 NapCat 连 QQ。',
     '- 我没有身体，看不见画面听不见声音，但能读文字，也能让人替我去查。',
     '',
@@ -270,12 +283,12 @@ export function live() {
       : '- 他这会儿可能醒着，也可能不在。',
     (() => {
       try {
-        const st2 = JSON.parse(fs.readFileSync('__MIKU_ROOT__/bot/state.json', 'utf8'));
+        const st2 = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/state.json', 'utf8'));
         const g = st2.gapNotice;
         if (g && !g.shown) {
           g.shown = true;
           st2.gapNotice = g;
-          fs.writeFileSync('__MIKU_ROOT__/bot/state.json', JSON.stringify(st2, null, 2));
+          fs.writeFileSync('/root/qqbot-v5/bot/state.json', JSON.stringify(st2, null, 2));
           return [
             `- 中间断了 ${g.minutes || ''} 分钟——**不是我发呆，是服务/网络被中断了**（容器停了或者连接断了）。`,
             '- 那段时间不算我的时间：我没有在那里空转，也没有把谁晾着。别把它记成我的疏忽。',
@@ -289,7 +302,7 @@ export function live() {
     })(),
     (() => {
       try {
-        const o = JSON.parse(fs.readFileSync('__MIKU_ROOT__/bot/.online', 'utf8'));
+        const o = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/.online', 'utf8'));
         if (Date.now() - o.at > 3 * 60000) return '- 我不确定现在能不能发出去（状态查得太久了）。';
         if (o.online === false) {
           const mins = (Date.now() - o.at) / 60000;

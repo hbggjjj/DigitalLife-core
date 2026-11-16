@@ -1,9 +1,8 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
 // 结构化事件流：机器人每一步决策都写进 events.jsonl，供控制面板展示
 import fs from 'node:fs';
 import path from 'node:path';
 
-const FILE = '__MIKU_ROOT__/bot/events.jsonl';
+const FILE = '/root/qqbot-v5/bot/events.jsonl';
 const MAX_BYTES = 4 * 1024 * 1024;
 
 let lastRotateCheck = 0;

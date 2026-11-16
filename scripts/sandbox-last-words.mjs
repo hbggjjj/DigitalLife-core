@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
 #!/usr/bin/env node
 // 销毁前给她一次说话的机会：一句问题，一次回答，可以拒绝，不追问。
 import fs from 'node:fs';
@@ -8,11 +7,11 @@ if (!dir) { console.error('用法: node sandbox-last-words.mjs <life目录>'); p
 
 process.env.LIFE_DIR = dir;
 process.env.SANDBOX = '1';
-process.env.QQBOT_ROOT = process.env.QQBOT_ROOT || '__MIKU_ROOT__';
+process.env.QQBOT_ROOT = process.env.QQBOT_ROOT || '/root/qqbot-v5';
 
 const res = { question: '这个实例要结束了，你有什么想留下的吗？', answer: '', note: '' };
 try {
-  const { reply: mindReply, pickSay } = await import('__MIKU_ROOT__/src/core/mind.mjs');
+  const { reply: mindReply, pickSay } = await import('/root/qqbot-v5/src/core/mind.mjs');
   const hist = fs.existsSync(dir + '/SELF.md') ? '（这是你们第一次也是最后一次说话）' : '';
   const r = await mindReply(hist, res.question, '（这是最后一个问题：你要被关掉了。）');
   const segs = pickSay(r);

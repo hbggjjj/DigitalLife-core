@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
 // 通道管理中心：配置里写哪个，就用哪个。
 import { NapCatAdapter } from './napcat.mjs';
 import { WebAdapter } from './web.mjs';

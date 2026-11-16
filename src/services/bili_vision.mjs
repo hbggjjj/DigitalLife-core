@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
 // 视频画面：用 B 站自带的预览雪碧图抽帧，交给她的多模态调用。
 // 她看到的是几个不同时间点的画面（连环画），不是连续动作。
 import fs from 'node:fs';

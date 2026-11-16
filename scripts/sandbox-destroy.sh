@@ -1,5 +1,4 @@
 #!/bin/bash
-# SPDX-License-Identifier: AGPL-3.0-or-later
 # 销毁沙箱并记账（保留一份对话归档到 private_backups）
 set -e
 ROOT="$1"
@@ -17,7 +16,7 @@ if [ "$2" = "--no-last-words" ]; then
   LW_NOTE="跳过最后的话（--no-last-words）"
   echo "$LW_NOTE" > "$LW_FILE"
 else
-  OUT=$(timeout 120 node __MIKU_ROOT__/scripts/sandbox-last-words.mjs "$ROOT/life" 2>/dev/null || echo '{"answer":"","note":"无回应（调用失败）"}')
+  OUT=$(timeout 120 node /root/qqbot-v5/scripts/sandbox-last-words.mjs "$ROOT/life" 2>/dev/null || echo '{"answer":"","note":"无回应（调用失败）"}')
   python3 - "$OUT" > "$LW_FILE" <<'PY2'
 import sys, json
 try:
@@ -32,6 +31,6 @@ PY2
   LW_NOTE="有最后的话，见 $(basename "$LW_FILE")"
 fi
 
-node __MIKU_ROOT__/scripts/audit-log.mjs DESTROY "$NAME" "chat_lines=$LINES last_words=$LW_NOTE"
+node /root/qqbot-v5/scripts/audit-log.mjs DESTROY "$NAME" "chat_lines=$LINES last_words=$LW_NOTE"
 rm -rf "$ROOT"
 echo "已销毁：$NAME（对话归档留在 /root/private_backups/）"

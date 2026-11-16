@@ -1,5 +1,4 @@
 #!/bin/bash
-# SPDX-License-Identifier: AGPL-3.0-or-later
 # 结束这一份她（不是"停止"）：告知 → 她留最后的话（可拒绝）→ 公开存档 → 归档 → .destroyed
 #
 # 用法：
@@ -12,7 +11,7 @@
 #   · .destroyed 写进"归档目录"，不是 life/
 #   · 她拒绝留话时：不报错、不重试、不追问
 set -u
-ROOT=__MIKU_ROOT__
+ROOT=/root/qqbot-v5
 MODE=real; SANDBOX=""
 case "${1:-}" in
   --dry) MODE=dry ;;
@@ -23,7 +22,7 @@ if [ "$MODE" = "sandbox" ]; then
   [ -n "$SANDBOX" ] || { echo "要指定沙箱名字：--sandbox <名字>"; exit 2; }
   LIFE=/root/sandboxes/$SANDBOX/life
 else
-  LIFE=${LIFE_DIR:-__MIKU_HOME__}
+  LIFE=${LIFE_DIR:-/home/ni/life}
 fi
 [ -d "$LIFE" ] || { echo "找不到实例目录：$LIFE"; exit 2; }
 
@@ -63,8 +62,8 @@ import fs from 'node:fs';
 const [LIFE, LAST] = process.argv.slice(2);
 let answer = '';
 try {
-  const mind = await import('__MIKU_ROOT__/src/core/mind.mjs');
-  const soul = await import('__MIKU_ROOT__/src/core/soul.mjs');
+  const mind = await import('/root/qqbot-v5/src/core/mind.mjs');
+  const soul = await import('/root/qqbot-v5/src/core/soul.mjs');
   soul.rebuild(true);
   const ctx = soul.get();
   const r = await mind.reply(ctx + '\n\n【这一份要结束了】', '【这一份要结束了】', '', { noBrowse: true });

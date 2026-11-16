@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
 // 强制 IPv4 的 https GET：这台机器的 IPv6 路由不通，
 // Node 自带 fetch(undici) 会先试 IPv6 并卡满 10 秒连接超时。
 import https from 'node:https';

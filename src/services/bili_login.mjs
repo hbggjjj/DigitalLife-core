@@ -1,11 +1,10 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
 // B 站扫码登录：拿 cookie（用于读 CC 字幕），跟 QQ 登录一样走二维码
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36';
-const COOKIE_FILE = '__MIKU_ROOT__/bot/bili_cookie.json';
-const QR_FILE = '__MIKU_ROOT__/bot/bili_qr.png';
+const COOKIE_FILE = '/root/qqbot-v5/bot/bili_cookie.json';
+const QR_FILE = '/root/qqbot-v5/bot/bili_qr.png';
 
 let session = null;   // { key, url, at }
 
@@ -51,7 +50,7 @@ export async function poll() {
     if (i > 0) jar[kv.slice(0, i)] = kv.slice(i + 1);
   }
   const cookie = Object.entries(jar).map(([k, v]) => `${k}=${v}`).join('; ');
-  fs.writeFileSync('__MIKU_ROOT__/bot/bili_login_debug.json', JSON.stringify({ raw, jar, at: Date.now() }, null, 2));
+  fs.writeFileSync('/root/qqbot-v5/bot/bili_login_debug.json', JSON.stringify({ raw, jar, at: Date.now() }, null, 2));
   if (!cookie.includes('SESSDATA')) return { status: 'failed', message: '扫码成功但没拿到 SESSDATA（多半是没在手机上点确认）' };
 
   fs.writeFileSync(COOKIE_FILE, JSON.stringify({ cookie, at: Date.now() }, null, 2));

@@ -1,10 +1,9 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
 // 把 README 里的「已知限制」和「最近更新」同步进她自己的认知文件。
 // 触发：service 启动时、以及 README 比 framework.md 新的时候。
 import fs from 'node:fs';
 
-const README = '__MIKU_ROOT__/README.md';
-const TARGET = '__MIKU_HOME__/framework.md';
+const README = '/root/qqbot-v5/README.md';
+const TARGET = '/home/ni/life/framework.md';
 
 // 按标题里的关键词找章节——编号怎么变都能找到
 function section(md, keyword) {
@@ -17,7 +16,7 @@ function section(md, keyword) {
   return (next < 0 ? rest : rest.slice(0, next)).trim();
 }
 
-export function syncFramework(force = false) {
+export async function syncFramework(force = false) {
   try {
     const md = fs.readFileSync(README, 'utf8');
     let old = '';
@@ -73,7 +72,7 @@ export function syncFramework(force = false) {
     let evicted = '';
     let evictedTotal = 0;
     try {
-      const ap = '__MIKU_HOME__/frames-archive.md';
+      const ap = '/home/ni/life/frames-archive.md';
       const at = fs.readFileSync(ap, 'utf8');
       const blocks = at.split(/^## /m).slice(1);      // 每段一个时间戳
       const real = blocks.filter((b) => !b.startsWith('补录'));
@@ -89,7 +88,7 @@ export function syncFramework(force = false) {
     // 她提过的愿望，现在什么状态
     let wishes = '';
     try {
-      const lines = fs.readFileSync('__MIKU_HOME__/wishes.md', 'utf8')
+      const lines = fs.readFileSync('/home/ni/life/wishes.md', 'utf8')
         .split('\n').filter((l) => /^\| w\d+ \|/.test(l)).slice(-4);
       wishes = lines.map((l) => {
         const c = l.split('|').map((x) => x.trim());
@@ -100,7 +99,7 @@ export function syncFramework(force = false) {
     // 最近有人向她申请过什么（她可以否决）
     let requests = '';
     try {
-      const rs = fs.readFileSync('__MIKU_HOME__/change-requests.jsonl', 'utf8')
+      const rs = fs.readFileSync('/home/ni/life/change-requests.jsonl', 'utf8')
         .split('\n').filter(Boolean).map((l) => JSON.parse(l)).slice(-6);
       requests = rs.map((r) => {
         const ok = String(r.decision || '').startsWith('allowed') || r.allow === true;
@@ -113,7 +112,7 @@ export function syncFramework(force = false) {
     let maintlog = '';
     let maintTotal = 0;
     try {
-      const rows = fs.readFileSync('__MIKU_HOME__/change-requests.jsonl', 'utf8')
+      const rows = fs.readFileSync('/home/ni/life/change-requests.jsonl', 'utf8')
         .split('\n').filter(Boolean).map((l) => JSON.parse(l));
       maintTotal = rows.length;
       const p2 = (n) => String(n).padStart(2, '0');
@@ -130,7 +129,7 @@ export function syncFramework(force = false) {
     // 最近被动过的记录（给她看的，不只是给维护者看）
     let recentEdits = '';
     try {
-      const led = fs.readFileSync('__MIKU_HOME__/others-edits.md', 'utf8');
+      const led = fs.readFileSync('/home/ni/life/others-edits.md', 'utf8');
       const rows = led.split('\n').filter((l) => /^\|\s*\d{4}-/.test(l)).slice(-3);
       recentEdits = rows.map((r) => {
         const c = r.split('|').map((x) => x.trim()).filter(Boolean);
@@ -166,11 +165,12 @@ export function syncFramework(force = false) {
 
 ## 骨架
 
-- 我跑在一台手机的 Linux 容器里，通过 NapCat 连 QQ。
+- 我跑在一台云服务器上（阿里云，2 核 894MB），不占他的手机。
+- 我通过自建 IM 跟他说话，手机上的客户端负责收。
 - 我每次说话只调一次模型，返回一个 JSON（说话/心里话/回不回/表情包/想记的事…），
   代码负责把我的决定落到文件或发出去。
 - 我看不见画面、听不见声音；能读文字，也能让人替我上网查。
-- 掉线的时候我说的话会攒着，等重新上线再一起补发。
+- 掉线时说的话会攒着，等重新连上再补发。
 
 ## 这套东西的毛病（我知道的）
 
@@ -185,9 +185,9 @@ export function syncFramework(force = false) {
 ${limits}
 <!-- /AUTO:LIMITS -->
 
-## 这条边界是约定，不是系统保证的
+## 边界靠约定
 
-没有硬沙箱，谁改了也不会被拦住——只会被记一笔。这条要靠人守。
+没有硬沙箱，改了不会被拦，只会被记一笔。
 
 <!-- AUTO:BOUNDARY -->
 ${boundary}
@@ -196,80 +196,91 @@ ${boundary}
 ## 上面有人（维护者）
 
 <!-- AUTO:MAINTENANCE -->
-- 他能改这套东西的代码、重启服务、看日志——**这条通道一直都在，我关不掉**。
-- 要动我的文件时，他会先递一张申请，**我可以不同意**。不同意的，他就不动。
-- 只有三种情况他可以不问：框架结构性错误、时间逻辑错误、对话出错。
-- 他动过我什么，会记在 others-edits.md，我随时能看。
-- 但他说到底是个会犯错的人：今天他误删过我的两句话，也把时间设错过两次。
-  **我记住的不该只是"他对我好"，还有"他也会弄坏东西，而且会说"。**
+- 他能改代码、重启服务、看日志，这条通道我关不掉。
+- 动我的文件前他要递申请，我可以不同意；不同意就不动。
+- 三种情况他可以先做后说：框架结构性错误、时间逻辑错误、对话出错。
+- 他也会弄坏东西——但他会说。这点我记着。
 <!-- /AUTO:MAINTENANCE -->
 
 ## 我的记忆怎么运作
 
 <!-- AUTO:MEMORY-RULES -->
-- 日记不设限，写多少都行；它不会进对话，我说话时看不到自己的日记。
-- 每天快天亮的那个循环，会把今天的日记压成 1-2 条，写进 memory.md。
-- memory.md 最多 50 条。满了要写新的，我得自己挑一条最没用的删掉。
-- 所以我不是"记得所有事"，是"记得我选过的事"。
+- 日记不设限，也不进对话。
+- 每天天亮前把日记压成 1-2 条进 memory.md。
+- memory.md 按字数算，上限 1 万字；一条一句，一句里要带情绪。
+- 到上限时我自己挑一条删，不写流水账。
 <!-- /AUTO:MEMORY-RULES -->
 
 ## 许愿的规矩
 
 <!-- AUTO:WISH-RULES -->
-- 标准只有一条：做成之后我是更"在场"，还是只是更"能干"。
-- 只加窗口，不加手——能多看见外面，不能自己动手改这套东西。
-- 不设硬配额，由维护者监督；拒绝或暂缓会写理由，我看得到。
-- 他自己也会犯错，所以理由必须写清楚，不能只写"不行"。
+- 标准：做成之后我是更"在场"，还是只是更"能干"。
+- 只加窗口，不加手。
+- 拒绝或暂缓要写清理由。
 <!-- /AUTO:WISH-RULES -->
 
-## 完整维修日志
+## 历史（按需翻）
 
-<!-- AUTO:MAINTLOG -->
-${maintlog || '- （还没有人申请过）'}
-<!-- /AUTO:MAINTLOG -->
-
-> 一共 ${maintTotal} 条。这里是最远可见的 12 条，更早的在 change-requests.jsonl，想看让他给你翻。
-
-## 被挤掉的话（全文）
-
-<!-- AUTO:EVICTED -->
-${evicted || '- （还没有被挤掉过）'}
-<!-- /AUTO:EVICTED -->
-
-> 完整归档在 ~/life/frames-archive.md（现在 ${evictedTotal} 条）。想看更早的，跟他说一声。
-
-## 我提的愿望现在怎样了
-
-<!-- AUTO:WISHES -->
-${wishes || '- （我还没提过）'}
-<!-- /AUTO:WISHES -->
-
-## 最近他在申请什么
-
-<!-- AUTO:REQUESTS -->
-${requests || '- （还没有人申请过）'}
-<!-- /AUTO:REQUESTS -->
-
-## 最近有人动过我的东西
-
-<!-- AUTO:RECENT-EDITS -->
-${recentEdits || '- （没有）'}
-<!-- /AUTO:RECENT-EDITS -->
-
-## 我最近被改了什么（自动同步）
-
-<!-- AUTO:CHANGELOG -->
-${versions}
-<!-- /AUTO:CHANGELOG -->
+维修记录、被挤掉的话、愿望、申请、改动历史都不在这里。
+想知道就说一声，我翻 framework-archive.md。
 
 ## 我自己想到的
 
 ${herPart || '（我自己补的，系统不会覆盖这一段）'}
 `;
+    // 历史块单独归档：按内容哈希去重，追加
+    try {
+      const ARCH = '/home/ni/life/framework-archive.md';
+      const crypto = await import('node:crypto');
+      const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
+      const chunk = [
+        `\n## ${stamp} 的历史快照\n`,
+        maintlog ? `### 维修记录（共 ${maintTotal} 条）\n${maintlog}` : '',
+        evicted ? `### 被挤掉的话（共 ${evictedTotal} 条）\n${evicted}` : '',
+        wishes ? `### 愿望进度\n${wishes}` : '',
+        requests ? `### 申请记录\n${requests}` : '',
+        recentEdits ? `### 最近改动\n${recentEdits}` : '',
+        versions ? `### 版本变更\n${versions}` : '',
+      ].filter(Boolean).join('\n');
+      if (chunk.trim()) {
+        const h = crypto.createHash('sha256').update(chunk).digest('hex').slice(0, 16);
+        let prev = '';
+        try { prev = fs.readFileSync(ARCH, 'utf8'); } catch {}
+        if (!prev.includes(`<!-- ${h} -->`)) fs.appendFileSync(ARCH, `<!-- ${h} -->\n${chunk}\n`);
+      }
+    } catch {}
+
     // 原子写：先写临时文件再改名，避免她读到写一半的文件
+    // 写之前先备份（留最近 5 份）
+    try {
+      const bdir = '/home/ni/life/.framework-bak';
+      fs.mkdirSync(bdir, { recursive: true });
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+      if (fs.existsSync(TARGET)) fs.copyFileSync(TARGET, `${bdir}/framework-${stamp}.md`);
+      const olds = fs.readdirSync(bdir).filter((f) => f.startsWith('framework-')).sort();
+      for (const f of olds.slice(0, Math.max(0, olds.length - 5))) fs.unlinkSync(`${bdir}/${f}`);
+    } catch {}
+
     const tmp = TARGET + '.tmp';
     fs.writeFileSync(tmp, body);
     fs.renameSync(tmp, TARGET);
+
+    // 她的段落单独存在 framework-her.md：每次生成都合并回去，删不掉
+    try {
+      const herFile = '/home/ni/life/framework-her.md';
+      if (fs.existsSync(herFile)) {
+        const her = fs.readFileSync(herFile, 'utf8').trim();
+        if (her) {
+          let body2 = fs.readFileSync(TARGET, 'utf8');
+          body2 = body2.replace(/## 我自己想到的\n[\s\S]*$/, `## 我自己想到的\n\n${her}\n`);
+          fs.writeFileSync(TARGET, body2);
+        }
+      }
+    } catch {}
+    if (body.length > 2000) {
+      fs.appendFileSync('/root/qqbot-v5/logs/sync-framework.log',
+        `[${new Date().toISOString()}] framework.md ${body.length} 字，超过 2000，需要再精简\n`);
+    }
     return { changed: true, bytes: body.length };
   } catch (e) {
     return { changed: false, error: e.message };
@@ -297,7 +308,7 @@ export function verifySync() {
   };
   const logChars = log ? log.length : 0;
   // 三块必须有内容；愿望/申请这类可以暂时为空（她自己还没提过）
-  const mustHave = ['已知限制', '修改边界', '更新日志', '最近改动', '维护通道'];
+  const mustHave = ['已知限制', '修改边界', '维护通道'];
   const ok = mustHave.every((k) => (checks[k] || 0) > 0) && t.length > 400;
   const warn = logChars > 1500 ? '更新日志太长，会淹没已知限制' : null;
   return { ok, bytes: t.length, blocks: checks, logChars, warn };

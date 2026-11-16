@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
 // 她的 B 站眼睛：只取文字（标题/简介/UP/播放量），不下视频、不看画面
 import fs from 'node:fs';
 import dns from 'node:dns';
@@ -128,7 +127,7 @@ export async function detail(bvid) {
   // 没字幕：如果开了云 ASR，就听一小段（只给"说了什么"，不给旋律）
   if (!out.subtitle) {
     try {
-      const cfgAll = JSON.parse(fs.readFileSync('__MIKU_ROOT__/bot/config.json', 'utf8'));
+      const cfgAll = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/config.json', 'utf8'));
       if (cfgAll.asr && cfgAll.asr.enabled) {
         const pu = await api('/x/player/playurl', { bvid, cid: out.cid, fnval: 16 });
         const audioUrl = pu?.dash?.audio?.[0]?.baseUrl || pu?.dash?.audio?.[0]?.base_url;

@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
 // 自建 IM 通道（协议见 docs/CHANNEL-PROTOCOL.md）
 // 只做"收发 + 判活"，不碰她的心智。
 import { BaseAdapter } from './base.mjs';

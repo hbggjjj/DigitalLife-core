@@ -1,8 +1,7 @@
 #!/bin/bash
-# SPDX-License-Identifier: AGPL-3.0-or-later
 # 回到某个快照（不带参数=最近一个）
 set -e
-ROOT=__MIKU_ROOT__
+ROOT=/root/qqbot-v5
 F="${1:-$(ls -1t "$ROOT/.snapshots"/*.tgz 2>/dev/null | head -1)}"
 [ -f "$F" ] || { echo "没有快照可回滚"; exit 1; }
 echo "回滚到: $F"

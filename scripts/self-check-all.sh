@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # 一键自检：全部只读，不改任何东西。约 5–10 秒。
 set -u
-cd __MIKU_ROOT__ || exit 1
+cd /root/qqbot-v5 || exit 1
 FAIL=0
 say() { printf '%-28s %s\n' "$1" "$2"; }
 
@@ -27,8 +27,15 @@ esac
 if [ "$UP" -ge "$REQ" ]; then if bash "$(dirname "$0")/check-instance-owner.sh" >/tmp/owner.out 2>&1; then say "实例归属" "OK（都是 v5）"; else say "实例归属" "FAIL（有别的实例在跑，见 /tmp/owner.out）"; FAIL=1; fi
 say "进程" "OK（$UP/$REQ，NapCat $([ "$NAPCAT" -ge 1 ] && echo 在 || echo 暂停)）"; else say "进程" "FAIL（只有 $UP 个运行中）"; FAIL=1; fi
 
+# 1.5) 引用检查：调用了但没定义/没 import 的名字（拦"加了模块忘了 import"）
+if out=$(node scripts/check-refs.mjs 2>&1); then
+  say "引用检查" "OK"
+else
+  say "引用检查" "FAIL（见下）"; echo "$out" | sed 's/^/    /' | head -8; FAIL=1
+fi
+
 # 2) 心智字段
-OUT=$(node -e "import('__MIKU_ROOT__/src/core/mind.mjs').then(m=>{const a=m.auditSchema();console.log(a.total+':'+a.missingInNormalize.length+':'+a.missingInPrompt.length)})" 2>/dev/null)
+OUT=$(node -e "import('/root/qqbot-v5/src/core/mind.mjs').then(m=>{const a=m.auditSchema();console.log(a.total+':'+a.missingInNormalize.length+':'+a.missingInPrompt.length)})" 2>/dev/null)
 N=$(echo "$OUT" | cut -d: -f1); MISS=$(echo "$OUT" | cut -d: -f2-)
 if [ "$MISS" = "0:0" ]; then say "心智字段" "OK（$N，无缺失）"; else say "心智字段" "FAIL（$OUT）"; FAIL=1; fi
 
@@ -45,7 +52,7 @@ H=$(curl -s --max-time 5 http://127.0.0.1:7791/api/v1/health)
 echo "$H" | grep -q '"online":true' && say "自建 IM" "OK" || { say "自建 IM" "FAIL（$H）"; FAIL=1; }
 
 # 6) 认知同步
-if LIFE_DIR=__MIKU_HOME__ node src/utils/sync-framework.mjs --check >/dev/null 2>&1; then say "认知同步" "OK"; else say "认知同步" "FAIL"; FAIL=1; fi
+if LIFE_DIR=/home/ni/life node src/utils/sync-framework.mjs --check >/dev/null 2>&1; then say "认知同步" "OK"; else say "认知同步" "FAIL"; FAIL=1; fi
 
 # 7) 待补发
 Q=$(wc -l < bot/retry_queue.jsonl 2>/dev/null || echo 0)

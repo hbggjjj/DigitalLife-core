@@ -1,11 +1,10 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
 // 愿望单自动审计：判断 → 决定 → （能做的）备份后执行 → 自测 → 写回理由
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 
-const LIFE = process.env.LIFE_DIR || '__MIKU_HOME__';
+const LIFE = process.env.LIFE_DIR || '/home/ni/life';
 const WISHES = `${LIFE}/wishes.md`;
-const ROOT = process.env.QQBOT_ROOT || '__MIKU_ROOT__';
+const ROOT = '/root/qqbot';
 
 // —— 能自动做的能力模板（白名单）——
 const TEMPLATES = {

@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
 // 上下文组装：按"轮次"而不是按"条数"截取。
 // 原则：不删她说过的任何话，只把连续的单向独白压成一行，防止模型被自己的焦虑反复喂。
 export function buildContext(history, { maxTurns = 4, maxLines = 16 } = {}) {

@@ -1,11 +1,10 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
 // 阿里云 Token 自动续期（NLS CreateToken，RPC 签名）
 // 只在本机内存 + 私有 config 里存 token；AK/SK 不进日志、不进开源包。
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import { http4 } from '../utils/http4.mjs';
 
-const CFG = '__MIKU_ROOT__/bot/config.json';
+const CFG = '/root/qqbot-v5/bot/config.json';
 
 function pct(s) {
   return encodeURIComponent(String(s))
@@ -69,7 +68,7 @@ export async function ensureToken(cfg, appkey = '') {
     const curCfg = cfgNow;
     try {
       const fsx = await import('node:fs');
-      fsx.appendFileSync('__MIKU_ROOT__/bot/config-writes.log',
+      fsx.appendFileSync('/root/qqbot-v5/bot/config-writes.log',
         `[${new Date().toISOString()}] asr-token write appkey=${appkey || 'default'} pid=${process.pid}\n`);
     } catch {}
     fs.writeFileSync(CFG, JSON.stringify(curCfg, null, 2));

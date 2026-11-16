@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // 视觉通道：把一张图变成一段文字描述。原图不留在记忆里，只留描述。
 import fs from 'node:fs';
+import { trace as traceCall } from '../utils/trace.mjs';
 
-const CFG = '__MIKU_ROOT__/bot/config.json';
+const CFG = '/root/qqbot-v5/bot/config.json';
 
 function cfg() {
   try {
@@ -70,9 +71,10 @@ export async function describe(imagePath, hint = '') {
     });
     if (!r.ok) return { ok: false, error: `接口 ${r.status}：${(await r.text()).slice(0, 120)}` };
     const j = await r.json();
+    traceCall({ kind: 'vision', model: c.model || 'deepseek-chat', messages, raw: j.choices?.[0]?.message?.content || '' });
     try {
       const u = j.usage || {};
-      fs.appendFileSync('__MIKU_ROOT__/bot/usage.jsonl', JSON.stringify({
+      fs.appendFileSync('/root/qqbot-v5/bot/usage.jsonl', JSON.stringify({
         ts: Date.now(), in: u.prompt_tokens || 0, out: u.completion_tokens || 0,
         calls: 1, kind: 'vision',
       }) + '\n');

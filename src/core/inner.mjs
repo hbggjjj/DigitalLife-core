@@ -3,12 +3,13 @@
 // 目的不是让她少说话，是让她先把情绪消化一遍，再决定要不要开口。
 import fs from 'node:fs';
 import path from 'node:path';
+import { trace as traceCall } from '../utils/trace.mjs';
 
-const LIFE = process.env.LIFE_DIR || '__MIKU_HOME__';
+const LIFE = process.env.LIFE_DIR || '/home/ni/life';
 const DIR = path.join(LIFE, 'inner');
 
 function cfg() {
-  try { return JSON.parse(fs.readFileSync('__MIKU_ROOT__/bot/config.json', 'utf8')); } catch { return {}; }
+  try { return JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/config.json', 'utf8')); } catch { return {}; }
 }
 
 /** 距他上次说话多少分钟（读归档最后一條 in） */
@@ -65,6 +66,7 @@ monologue 要求：第一人称、40-80 字、写"我现在真实的状态"。
     });
     if (!r.ok) return null;
     const j = await r.json();
+    traceCall({ kind: 'monologue', model: ds.model || 'deepseek-chat', messages: [{ role: 'system', content: sys }, { role: 'user', content: user }], raw: j.choices?.[0]?.message?.content || '' });
     let parsed = {};
     try { parsed = JSON.parse(j.choices?.[0]?.message?.content || '{}'); } catch { parsed = {}; }
     const text = String(parsed.monologue || '').trim();

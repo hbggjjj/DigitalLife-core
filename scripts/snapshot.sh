@@ -1,8 +1,7 @@
 #!/bin/bash
-# SPDX-License-Identifier: AGPL-3.0-or-later
 # 改动前打快照：bot/ panel/ scripts/ README。出问题一条命令回去。
 set -e
-ROOT=__MIKU_ROOT__
+ROOT=/root/qqbot-v5
 TS=$(date +%Y%m%d_%H%M%S)
 OUT="$ROOT/.snapshots/$TS.tgz"
 mkdir -p "$ROOT/.snapshots"

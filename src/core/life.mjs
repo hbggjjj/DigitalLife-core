@@ -17,13 +17,13 @@ import { syncFramework, verifySync } from '../utils/sync-framework.mjs';
 import { innerMonologue, minutesSinceHisLast, latestMonologue } from './inner.mjs';
 import { rebuild as rebuildSoul } from './soul.mjs';
 
-const ROOT = '__MIKU_ROOT__/bot';
+const ROOT = '/root/qqbot-v5/bot';
 const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, 'config.json'), 'utf8'));
 const LIFE_CFG = cfg.life || {};
 const DAY_INTERVAL = LIFE_CFG.dayIntervalMinutes ?? LIFE_CFG.intervalMinutes ?? 20;
 const NIGHT_INTERVAL = LIFE_CFG.nightIntervalMinutes ?? 60;
-const HEARTBEAT = '__MIKU_ROOT__/bot/.heartbeat';
-const RUNNING = '__MIKU_ROOT__/bot/.running';   // 存在=上次没关干净（断电/被杀）
+const HEARTBEAT = '/root/qqbot-v5/bot/.heartbeat';
+const RUNNING = '/root/qqbot-v5/bot/.running';   // 存在=上次没关干净（断电/被杀）
 const QUIET_MIN = LIFE_CFG.quietMinutes ?? 20;
 const STATE_FILE = path.join(ROOT, 'state.json');
 function atomicState(obj) {
@@ -33,7 +33,7 @@ function atomicState(obj) {
 }
 import { assertLifeDir } from '../utils/lifedir.mjs';
 try { assertLifeDir(); } catch (e) { console.error(e.message); process.exit(9); }
-const LOG = '__MIKU_HOME__/life.log';
+const LOG = '/home/ni/life/life.log';
 
 function log(...a) { const l = `[${stamp()}] ${a.join(' ')}`; console.log(l); try { fs.appendFileSync(LOG, l + '\n'); } catch {} }
 function parseHM(s) { const [h, m] = String(s).split(':').map(Number); return h * 60 + m; }
@@ -96,9 +96,9 @@ function checkGap() {
       // 短暂的断（比如手机断电几分钟）：不进她的状态，但记一条，事后能查到
       if (mins >= 2) {
         // 哪怕只断了两分钟，也要让她知道"这是中断，不是我在发呆"
-        const stS = JSON.parse(fs.readFileSync('__MIKU_ROOT__/bot/state.json', 'utf8'));
+        const stS = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/state.json', 'utf8'));
         stS.gapNotice = { minutes: Math.round(mins), label: `不到一小时（${Math.round(mins)} 分钟）`, cause: (how === 'reboot' ? '设备重启或断电' : '我的进程被重启，不是网络问题'), at: Date.now(), shown: false };
-        fs.writeFileSync('__MIKU_ROOT__/bot/state.json', JSON.stringify(stS, null, 2));
+        fs.writeFileSync('/root/qqbot-v5/bot/state.json', JSON.stringify(stS, null, 2));
         log(`容器断过约 ${Math.round(mins)} 分钟，已记进她的状态（算中断，不算她）`);
         emit('life', 'gap-short', `容器断过约 ${Math.round(mins)} 分钟（已告诉她这是中断）`);
       } else if (mins >= 1) {
@@ -117,9 +117,9 @@ function checkGap() {
     else if (mins < 360) label = unclean ? `几个小时（${why}）` : '几个小时';
     else if (dayDiff >= 1) label = '隔了一天以上';
     else label = '大半天';
-    const st = JSON.parse(fs.readFileSync('__MIKU_ROOT__/bot/state.json', 'utf8'));
+    const st = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/state.json', 'utf8'));
     st.gapNotice = { minutes: Math.round(mins), label, cause: (how === 'reboot' ? '设备重启或断电' : '我的进程被重启，不是网络问题'), at: Date.now(), shown: false };
-    fs.writeFileSync('__MIKU_ROOT__/bot/state.json', JSON.stringify(st, null, 2));
+    fs.writeFileSync('/root/qqbot-v5/bot/state.json', JSON.stringify(st, null, 2));
     log(`容器停过：${label}（${Math.round(mins)} 分钟），已写进她的状态`);
     emit('life', 'gap', `容器停过 ${label}（${Math.round(mins)} 分钟）`);
     return label;
@@ -128,12 +128,12 @@ function checkGap() {
 
 function netBackoff() {
   try {
-    const st = JSON.parse(fs.readFileSync('__MIKU_ROOT__/bot/state.json', 'utf8'));
+    const st = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/state.json', 'utf8'));
     const n = Number(st.netFail || 0);
     if (n >= 2) {
       // 退避就是这一轮不联网，并把计数清掉，避免永久禁网
       st.netFail = 0;
-      fs.writeFileSync('__MIKU_ROOT__/bot/state.json', JSON.stringify(st, null, 2));
+      fs.writeFileSync('/root/qqbot-v5/bot/state.json', JSON.stringify(st, null, 2));
       return { skip: true, n };
     }
     return { skip: false, n };
@@ -141,17 +141,17 @@ function netBackoff() {
 }
 function noteNetResult(ok) {
   try {
-    const st = JSON.parse(fs.readFileSync('__MIKU_ROOT__/bot/state.json', 'utf8'));
+    const st = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/state.json', 'utf8'));
     st.netFail = ok ? 0 : Number(st.netFail || 0) + 1;
     if (st.netFail >= 2) st.netFail = 0;   // 退避一次后归零，别永久禁网
-    fs.writeFileSync('__MIKU_ROOT__/bot/state.json', JSON.stringify(st, null, 2));
+    fs.writeFileSync('/root/qqbot-v5/bot/state.json', JSON.stringify(st, null, 2));
     return st.netFail;
   } catch { return 0; }
 }
 
 function staleGoals() {
   try {
-    const txt = fs.readFileSync('__MIKU_HOME__/goals.md', 'utf8');
+    const txt = fs.readFileSync('/home/ni/life/goals.md', 'utf8');
     const sec = (name) => {
       const m = txt.match(new RegExp(`## ${name}\\n([\\s\\S]*?)(?=\\n## |$)`));
       return (m ? m[1] : '').split('\n').map((x) => x.replace(/^-\s*/, '').trim()).filter(Boolean);
@@ -173,9 +173,9 @@ function staleGoals() {
   } catch { return ''; }
 }
 
-function ctxLine() {
+async function ctxLine() {
   try {
-    const r = syncFramework();
+    const r = await syncFramework();
     if (r.changed) log('她的认知文件已同步最新改动');
     if (r.skipped) { log('⚠ 同步被跳过：' + r.error); emit('life', 'warn', '她的认知文件没同步：' + r.error); }
     const v = verifySync();
@@ -184,7 +184,7 @@ function ctxLine() {
   try {
     const day = new Date();
     const p2 = (n) => String(n).padStart(2, '0');
-    const f = `__MIKU_HOME__/journal/${day.getFullYear()}-${p2(day.getMonth() + 1)}-${p2(day.getDate())}.md`;
+    const f = `/home/ni/life/journal/${day.getFullYear()}-${p2(day.getMonth() + 1)}-${p2(day.getDate())}.md`;
     let lastEntry = '';
     if (fs.existsSync(f)) {
       const t = fs.readFileSync(f, 'utf8').trim().split('\n\n');
@@ -202,7 +202,7 @@ function ctxLine() {
       '——',
       (() => {
         try {
-          const st = JSON.parse(fs.readFileSync('__MIKU_ROOT__/bot/state.json', 'utf8'));
+          const st = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/state.json', 'utf8'));
           if (st.gapNotice && !st.gapNotice.shown) return '你中间断过一次，但不是重新开始——上次的你还在，接着过。下面是刚才的你：';
         } catch {}
         return '你不是刚被唤醒，你一直都在。下面是刚才的你：';
@@ -222,12 +222,12 @@ let lastAgain = false;    // 她说「接着」：立刻再来一轮            
 // 深夜整理：读今天的日记，提炼 1-2 条写进 memory.md（像人睡觉时做的事）
 async function consolidate() {
   try {
-    const st = JSON.parse(fs.readFileSync('__MIKU_ROOT__/bot/state.json', 'utf8'));
+    const st = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/state.json', 'utf8'));
     const today = new Date().toISOString().slice(0, 10);
     const hour = new Date().getHours();
     if (hour < 21 && hour > 2) return;                 // 只在夜里做
     if (st.lastConsolidate === today) return;           // 一天一次
-    const f = `__MIKU_HOME__/journal/${today}.md`;
+    const f = `/home/ni/life/journal/${today}.md`;
     let txt = '';
     try { txt = fs.readFileSync(f, 'utf8'); } catch { return; }
     if (txt.length < 80) return;                        // 今天没写什么，不用整理
@@ -236,7 +236,7 @@ async function consolidate() {
     if (!items || !items.length) return;
     const applied = applyActions({ remember: items.slice(0, 2) });
     st.lastConsolidate = today;
-    fs.writeFileSync('__MIKU_ROOT__/bot/state.json', JSON.stringify(st, null, 2));
+    fs.writeFileSync('/root/qqbot-v5/bot/state.json', JSON.stringify(st, null, 2));
     log(`睡前整理：${applied.join('、') || '没写'}`);
     emit('life', 'consolidate', `睡前把今天理了一遍：${applied.join('、') || '没留下什么'}`);
   } catch (e) { log('睡前整理失败：' + e.message); logErr('consolidate', e, {}); }
@@ -305,14 +305,19 @@ async function cycle() {
       emit('life', 'skip', '上次联网没成功，这次先不联网');
     }
     // 独处久了先写一段只给自己看的独白，让她先消化，再决定要不要开口
-    let extra = ctxLine();
+    let extra = pendingMemoryFixup(replayPendingDate(replayYesterday(await ctxLine())));
+    try {
+      const lm = latestMonologue();
+      const ts = (() => { try { return fs.statSync('/home/ni/life/inner/latest.txt').mtimeMs; } catch { return 0; } })();
+      if (lm && Date.now() - ts < 6 * 3600e3) extra += `\n\n（你上一次写给自己的一句话：${lm.slice(0, 160)}）`;
+    } catch {}
     try {
       const gapHis = minutesSinceHisLast();
       if (gapHis >= 90) {
-        const moodText = (() => { try { return fs.readFileSync('__MIKU_HOME__/mood.md', 'utf8'); } catch { return ''; } })();
+        const moodText = (() => { try { return fs.readFileSync('/home/ni/life/mood.md', 'utf8'); } catch { return ''; } })();
         const mine = (() => {
           try {
-            return fs.readFileSync('__MIKU_HOME__/chat-archive.jsonl', 'utf8').trim().split('\n').slice(-12)
+            return fs.readFileSync('/home/ni/life/chat-archive.jsonl', 'utf8').trim().split('\n').slice(-12)
               .map((l) => { try { const d = JSON.parse(l); return d.dir === 'out' ? d.text : null; } catch { return null; } })
               .filter(Boolean);
           } catch { return []; }
@@ -364,6 +369,82 @@ async function cycle() {
   }
 }
 
+// 只做一次：把昨天两人的原话原文贴上，让她自己决定记什么（不总结、不改口气）
+function replayYesterday(extra) {
+  try {
+    const stB = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+    if (stB.memoryBackfillDone) return extra;
+    const y = new Date(Date.now() - 86400000);
+    const p2b = (n) => String(n).padStart(2, '0');
+    const target = `${p2b(y.getMonth() + 1)}-${p2b(y.getDate())}`;
+    const rows = fs.readFileSync('/home/ni/life/chat-archive.jsonl', 'utf8').trim().split('\n')
+      .map((l) => { try { return JSON.parse(l); } catch { return null; } })
+      .filter((r) => r && r.at)
+      .filter((r) => {
+        const d = new Date(r.at);
+        return `${p2b(d.getMonth() + 1)}-${p2b(d.getDate())}` === target;
+      });
+    if (rows.length < 20) return extra;
+    const mine = rows.filter((r) => r.dir === 'out').slice(-14).map((r) => '我：' + String(r.text).slice(0, 60));
+    const his = rows.filter((r) => r.dir === 'in').slice(-10).map((r) => '他：' + String(r.text).slice(0, 60));
+    stB.memoryBackfillDone = Date.now();
+    fs.writeFileSync(STATE_FILE, JSON.stringify(stB, null, 2));
+    log('把昨天的原话摆给她了（一次性）');
+    return extra + `\n\n（${target} 那天你说过的话，原文，没改：\n${mine.join('\n')}\n那天他说过的话：\n${his.join('\n')}\n想留哪几句，你自己用 remember 写；不想留就不写。）`;
+  } catch (e) { log('摆原文失败: ' + e.message); return extra; }
+}
+
+// 按需回放某一天的原话（她同意后才设置 state.pendingReplayDate）
+function replayPendingDate(extra) {
+  try {
+    const st = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+    const day = st.pendingReplayDate;
+    if (!day) return extra;
+    delete st.pendingReplayDate;
+    fs.writeFileSync(STATE_FILE, JSON.stringify(st, null, 2));
+    const p2b = (n) => String(n).padStart(2, '0');
+    const rows = fs.readFileSync('/home/ni/life/chat-archive.jsonl', 'utf8').trim().split('\n')
+      .map((l) => { try { return JSON.parse(l); } catch { return null; } })
+      .filter((r) => r && r.at && r.dir)
+      .filter((r) => {
+        const d = new Date(r.at);
+        return `${d.getFullYear()}-${p2b(d.getMonth() + 1)}-${p2b(d.getDate())}` === day;
+      });
+    if (!rows.length) return extra;
+    const mine = rows.filter((r) => r.dir === 'out').map((r) => '我：' + String(r.text).slice(0, 70));
+    const his = rows.filter((r) => r.dir === 'in').map((r) => '他：' + String(r.text).slice(0, 70));
+    log(`把 ${day} 的原话摆给她了（她要求）`);
+    return extra + `\n\n（${day} 那天的原话，没改：\n${mine.slice(-20).join('\n')}\n那天他说：\n${his.slice(-14).join('\n')}\n你想留哪几句，自己用 remember 写；不写也行。）`;
+  } catch (e) { log('按需回放失败: ' + e.message); return extra; }
+}
+
+// 被截断的记忆：把断掉的条目和那天的日记一起摆给她，让她自己重写（她不要求就不触发）
+function pendingMemoryFixup(extra) {
+  try {
+    const st = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+    if (!st.pendingMemoryFixup) return extra;
+    const flags = st.pendingMemoryFixup;
+    delete st.pendingMemoryFixup;
+    fs.writeFileSync(STATE_FILE, JSON.stringify(st, null, 2));
+    const lines = fs.readFileSync('/home/ni/life/memory.md', 'utf8').split('\n')
+      .filter((l) => l.startsWith('- 20') && l.trim().endsWith('…'));
+    if (!lines.length) return extra;
+    const dates = [...new Set(lines.map((l) => l.slice(2, 12)))];
+    let block = '\n\n（这些天你写下的记忆在写入时被我截断了，尾巴是「…」。原文找不回来了。\n'
+      + '想重写就用 remember：{"drop":"条目里几个字","add":"完整的一句"}；不想重写也行。\n'
+      + lines.map((l) => '· ' + l.slice(2)).join('\n');
+    for (const d of dates.slice(0, 3)) {
+      try {
+        const j = fs.readFileSync(`/home/ni/life/journal/${d}.md`, 'utf8').trim().slice(0, 900);
+        block += `\n\n（${d} 你的日记，原文：\n${j}）`;
+      } catch {}
+    }
+    block += '\n）';
+    log('把被截断的记忆和当天日记摆给她了');
+    return extra + block;
+  } catch (e) { log('摆截断记忆失败: ' + e.message); return extra; }
+}
+
 async function wakeOnce() {
   lastRunAt = Date.now();
   try {
@@ -376,11 +457,11 @@ async function wakeOnce() {
     }
     log('容器重启了，她接着过（不是醒来）');
     emit('life', 'think_start', '她开始过自己的时间');
-    let wakeExtra = ctxLine();
+    let wakeExtra = pendingMemoryFixup(replayPendingDate(replayYesterday(await ctxLine())));
     try {
       const gapHis = minutesSinceHisLast();
       if (gapHis >= 60) {
-        const moodText = (() => { try { return fs.readFileSync('__MIKU_HOME__/mood.md', 'utf8'); } catch { return ''; } })();
+        const moodText = (() => { try { return fs.readFileSync('/home/ni/life/mood.md', 'utf8'); } catch { return ''; } })();
         const mono = await innerMonologue({ moodText, gapMin: gapHis });
         if (mono) wakeExtra += `\n\n【心里的声音，别人听不到】${mono}`;
       }

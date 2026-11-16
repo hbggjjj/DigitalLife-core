@@ -1,9 +1,8 @@
 #!/bin/bash
-# SPDX-License-Identifier: AGPL-3.0-or-later
 # 轻量外部锚定：把审计链最新的 hash 写到她碰不到的地方（手机 /sdcard），一天一条
 # 不做 Merkle、不做签名、不引密钥——只是让"整体重写"留下痕迹
 set -e
-ROOT=__MIKU_ROOT__
+ROOT=/root/qqbot-v5
 AUDIT=/root/sandboxes/AUDIT.log
 TODAY=$(date +%Y-%m-%d)
 
@@ -17,12 +16,12 @@ COUNT=$(wc -l < "$AUDIT")
 LINE="$TODAY  lines=$COUNT  last=$HASH"
 
 # 今天已经锚过就不重复
-if grep -q "^$TODAY " __MIKU_HOME__/audit-anchor.log 2>/dev/null; then
+if grep -q "^$TODAY " /home/ni/life/audit-anchor.log 2>/dev/null; then
   echo "今天已锚定过，跳过"
   exit 0
 fi
 OUT1=/sdcard/Download/audit-anchor.log        # 容器外，手机上能看到
-OUT2=__MIKU_HOME__/audit-anchor.log           # 她那边也留一份
+OUT2=/home/ni/life/audit-anchor.log           # 她那边也留一份
 echo "$LINE" >> "$OUT1" 2>/dev/null || true
 echo "$LINE" >> "$OUT2"
 echo "锚定：$LINE"

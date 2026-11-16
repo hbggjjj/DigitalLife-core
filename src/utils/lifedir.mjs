@@ -1,9 +1,8 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
 // 她的家：唯一入口。所有写她文件的地方都必须过 assertLifeDir()。
 import fs from 'node:fs';
 import path from 'node:path';
 
-const REAL_HOME = '__MIKU_HOME__';
+const REAL_HOME = '/home/ni/life';
 
 function fingerprint(dir) {
   try {

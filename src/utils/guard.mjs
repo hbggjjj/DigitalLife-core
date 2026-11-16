@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
 // 禁区守卫：agent 每次思考前后校验关键文件，被改了就报警并还原
 import fs from 'node:fs';
 import path from 'node:path';
@@ -6,19 +5,22 @@ import crypto from 'node:crypto';
 import { emit } from './events.mjs';
 
 const PROTECTED = [
-  ...(process.env.NAPCAT_DIR ? [`${process.env.NAPCAT_DIR}/config/onebot11.json`, `${process.env.NAPCAT_DIR}/config/webui.json`] : []),
-  '__MIKU_ROOT__/supervisor.sh',
-  '__MIKU_ROOT__/start_all.sh',
+  '/root/.dsh/.credentials.yaml',
+  '/root/.dsh/.bridge_headers',
+  `${process.env.NAPCAT_DIR || '/root/qqbot/NapCat'}/config/onebot11.json`,
+  `${process.env.NAPCAT_DIR || '/root/qqbot/NapCat'}/config/webui.json`,
+  '/root/qqbot-v5/supervisor.sh',
+  '/root/qqbot-v5/start_all.sh',
 ];
 const VOLATILE = ['state.json', 'events.jsonl', 'usage.jsonl', 'retry_queue.jsonl', '.online', '.heartbeat'];
-const BACKUP = '__MIKU_ROOT__/.guard-backup';
+const BACKUP = '/root/qqbot-v5/.guard-backup';
 // 维护者按流程改过的文件：写下 expected hash，guard 认这个，不认旧内存基线
-const ALLOW = '__MIKU_ROOT__/.guard-allow.json';
+const ALLOW = '/root/qqbot-v5/.guard-allow.json';
 
 function allowedHash(f) {
   try { return JSON.parse(fs.readFileSync(ALLOW, 'utf8'))[f] || null; } catch { return null; }
 }
-const LOG = '__MIKU_ROOT__/bot/guard.log';
+const LOG = '/root/qqbot-v5/bot/guard.log';
 
 function sha(file) {
   try { return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex'); }
@@ -30,7 +32,7 @@ function log(line) {
 
 export function snapshot() {
   const out = {};
-  for (const f of PROTECTED) out[f] = sha(f);
+  for (const f of PROTECTED) { if (!fs.existsSync(f)) continue; out[f] = sha(f); }
   return out;
 }
 
@@ -50,6 +52,7 @@ export function verify(before) {
   const after = snapshot();
   const changed = [];
   for (const f of PROTECTED) {
+    if (!fs.existsSync(f)) continue;   // 这台机器上没有这个文件（比如云上没有 DSHA/NapCat）
     const expected = allowedHash(f);            // 维护者声明的 hash 优先
     const base = expected || before[f];
     if (base !== after[f]) changed.push(f);

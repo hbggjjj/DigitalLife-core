@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
 // 通道基类：任何通道实现 sendText/sendImage/sendMeme/ping/inbound，
 // 就自动拥有"攒话补发"和"失败重试"。
 import fs from 'node:fs';
@@ -7,8 +6,8 @@ export class BaseAdapter {
   constructor(name, cfg = {}) {
     this.name = name;
     this.cfg = cfg;
-    this.queueFile = cfg.queueFile || '__MIKU_ROOT__/bot/retry_queue.jsonl';
-    this.lostFile = cfg.lostFile || '__MIKU_ROOT__/bot/undelivered.log';
+    this.queueFile = cfg.queueFile || '/root/qqbot-v5/bot/retry_queue.jsonl';
+    this.lostFile = cfg.lostFile || '/root/qqbot-v5/bot/undelivered.log';
     this.onEvent = cfg.onEvent || (() => {});
   }
 

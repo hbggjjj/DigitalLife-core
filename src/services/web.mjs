@@ -37,6 +37,46 @@ function parseRss(xml, limit = 6) {
 }
 
 /** 搜索：Bing 的 RSS 接口，返回 [{title,desc,link}] */
+// 让模型把"砂の惑星 米津玄师"这种混合语言查询，改写成更可能命中的中文说法
+async function rewriteQueries(q) {
+  try {
+    const fs = await import('node:fs');
+    const cfg = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/config.json', 'utf8'));
+    const key = process.env.DEEPSEEK_API_KEY || cfg.deepseek.apiKey;
+    const r = await fetch(`${(cfg.deepseek.baseUrl || 'https://api.deepseek.com').replace(/\/$/, '')}/chat/completions`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        model: cfg.deepseek.model || 'deepseek-chat',
+        messages: [
+          { role: 'system', content: '把用户给的一句话改写成 2 条更适合搜索引擎的中文查询，只输出 JSON：{"queries":["...","..."]}。保留专有名词，别加解释。' },
+          { role: 'user', content: q.slice(0, 60) },
+        ],
+        max_tokens: 80, temperature: 0.2, response_format: { type: 'json_object' },
+      }),
+      signal: AbortSignal.timeout(12000),
+    });
+    if (!r.ok) return [];
+    const _txt = (await r.json()).choices?.[0]?.message?.content || '';
+    traceCall({ kind: 'search-rewrite', model: cfg.deepseek.model || 'deepseek-chat', messages: [{ role: 'user', content: q.slice(0, 60) }], raw: _txt });
+    const j = JSON.parse(_txt || '{}');
+    return Array.isArray(j.queries) ? j.queries.slice(0, 2).map(String) : [];
+  } catch { return []; }
+}
+
+// DuckDuckGo HTML 兜底（Bing RSS 对中日混合词很差）
+async function ddg(q, limit) {
+  try {
+    const html = await get(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`, { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0' });
+    const out = [];
+    for (const m of html.matchAll(/<a[^>]+class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]{0,200}?)<\/a>/g)) {
+      const title = m[2].replace(/<[^>]+>/g, '').trim();
+      if (title) out.push({ title: title.slice(0, 80), desc: '', link: m[1] });
+      if (out.length >= limit) break;
+    }
+    return out;
+  } catch { return []; }
+}
+
 export async function search(query, limit = 5) {
   const q0 = String(query).slice(0, 80);
   const q = encodeURIComponent(q0);
@@ -44,10 +84,25 @@ export async function search(query, limit = 5) {
   let items = parseRss(xml, limit);
 
   // 这版 Bing 对多词中文查询基本失效（常回词典/0 条）：先判断结果是否"答非所问"
+  const terms = q0.split(/[\s　]+/).filter((w) => w.length >= 2);
+  const hit = (x) => terms.length === 0 || terms.some((w) => (x.title + ' ' + (x.desc || '')).includes(w));
+  const dictionaryish = (x) => /字典|拼音|部首|笔顺|汉语词典|新华字典/.test(x.title + ' ' + (x.link || ''));
   const junky = (arr) => !arr.length
-    || arr.every((x) => /字典|拼音|部首|笔顺|汉语|百科/.test(x.title + ' ' + (x.link || '')));
+    || arr.filter((x) => hit(x) && !dictionaryish(x)).length < Math.min(2, arr.length);
 
   if (junky(items)) {
+    // 先让模型把查询改写成更像人话的中文
+    for (const alt of await rewriteQueries(q0)) {
+      try {
+        const x = await get(`https://www.bing.com/search?q=${encodeURIComponent(alt)}&format=rss&setlang=zh-CN`);
+        const r = parseRss(x, limit);
+        if (!junky(r) && r.length) return r;
+      } catch {}
+      const d = await ddg(alt, limit);
+      if (d.length) return d;
+    }
+    const d0 = await ddg(q0, limit);
+    if (d0.length) return d0;
     // 真人的说法：用 B 站搜索（她能接受的来源），把视频标题当成"别人怎么说"
     try {
       const { search: biliSearch } = await import('./bili.mjs');
