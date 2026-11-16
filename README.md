@@ -939,8 +939,3 @@ bash scripts/sandbox-destroy.sh <目录> [--no-last-words]
 > 「嘴上那句到我这儿。」
 
 **整套系统——通道、标记、核对、归档、审计、申请——都是为了这一句。**
-
-### 双人通道（自建 IM）
-
-不依赖 VoceChat：单独一个进程（7790），只有推送 / 发送 / 增量拉取 / 已读四个动作，
-消息就是 append-only 的 `messages.jsonl`。协议与部署见 [docs/CHANNEL.md](docs/CHANNEL.md)。

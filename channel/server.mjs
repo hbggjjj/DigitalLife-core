@@ -19,6 +19,8 @@ const DEVICE_PIN = process.env.CHANNEL_PIN || '';
 fs.mkdirSync(DATA, { recursive: true });
 const MSG = path.join(DATA, 'messages.jsonl');
 const READ = path.join(DATA, 'read.json');
+const MEDIA = path.join(DATA, 'media');
+fs.mkdirSync(MEDIA, { recursive: true });
 
 // —— 存储：只追加
 let cache = [];
@@ -61,7 +63,7 @@ function writeRead(v) {
 function sign(msgId, senderId, origin, ts) {
   return crypto.createHmac('sha256', SECRET).update([msgId, senderId, origin, ts].join('\n')).digest('hex');
 }
-async function forward(text, origin = 'user') {
+async function forward(text, origin = 'user', images = []) {
   const msgId = 'c' + seq;
   const ts = Date.now();
   const headers = {
@@ -72,7 +74,7 @@ async function forward(text, origin = 'user') {
   if (origin === 'user' && DEVICE_PIN) headers['X-IM-Device-Pin'] = DEVICE_PIN;
   const r = await fetch(`${SERVICE}/inbound`, {
     method: 'POST', headers,
-    body: JSON.stringify({ msgId, senderId: 'user-1', origin, text, ts }),
+    body: JSON.stringify({ msgId, senderId: 'user-1', origin, text, ts, images: images.map((x) => ({ path: x.path })) }),
     signal: AbortSignal.timeout(15000),
   });
   return r.ok;
@@ -125,17 +127,43 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // 上传一张图：原始字节直接进来，存到 media/，返回相对路径
+  if (p === '/upload' && req.method === 'POST') {
+    const ext = (u.searchParams.get('ext') || 'jpg').replace(/[^a-z0-9]/gi, '').slice(0, 5) || 'jpg';
+    const chunks = [];
+    req.on('data', (c) => chunks.push(c));
+    req.on('end', () => {
+      const buf = Buffer.concat(chunks);
+      if (!buf.length) return json(res, { ok: false, message: '空文件' }, 400);
+      if (buf.length > 12 * 1024 * 1024) return json(res, { ok: false, message: '图太大（>12MB）' }, 413);
+      const name = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}.${ext}`;
+      fs.writeFileSync(path.join(MEDIA, name), buf);
+      return json(res, { ok: true, name, path: path.join(MEDIA, name), url: '/media/' + name });
+    });
+    return;
+  }
+
+  // 取图
+  if (p.startsWith('/media/')) {
+    const name = path.basename(p.slice('/media/'.length));
+    const f = path.join(MEDIA, name);
+    if (!fs.existsSync(f)) return json(res, { ok: false, message: '没有这张图' }, 404);
+    res.writeHead(200, { 'Content-Type': name.endsWith('.png') ? 'image/png' : 'image/jpeg', 'Cache-Control': 'max-age=86400' });
+    return res.end(fs.readFileSync(f));
+  }
+
   // 上行：他说的话
   if (p === '/send' && req.method === 'POST') {
     let b = ''; req.on('data', (c) => (b += c));
     req.on('end', async () => {
       let d = {}; try { d = JSON.parse(b); } catch {}
       const text = String(d.text || '').trim();
-      if (!text) return json(res, { ok: false, message: '空消息' }, 400);
-      const item = append({ dir: 'in', text });
+      const images = Array.isArray(d.images) ? d.images.map((x) => (typeof x === 'string' ? { path: x } : x)).filter((x) => x && x.path) : [];
+      if (!text && !images.length) return json(res, { ok: false, message: '空消息' }, 400);
+      const item = append({ dir: 'in', text, images });
       broadcast(item);
       let accepted = false;
-      try { accepted = await forward(text); } catch {}
+      try { accepted = await forward(text, 'user', images); } catch {}
       return json(res, { ok: true, id: item.id, accepted });
     });
     return;
@@ -162,7 +190,7 @@ const server = http.createServer(async (req, res) => {
     req.on('end', () => {
       let d = {}; try { d = JSON.parse(b); } catch {}
       const items = Array.isArray(d.items) ? d.items : [d];
-      const out = items.filter((x) => x && x.text).map((x) => push(x));
+      const out = items.filter((x) => x && (x.text || (x.images && x.images.length))).map((x) => push(x));
       return json(res, { ok: true, pushed: out.length, ids: out.map((x) => x.id) });
     });
     return;

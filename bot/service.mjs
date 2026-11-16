@@ -719,11 +719,13 @@ async function sendMeme(uid, cat) {
       const ad = createAdapter('selfim', cfg.selfim || {}, {});
       await ad.send('meme', { to: (cfg.selfim && cfg.selfim.to) || 'user-1', path: file });
       log(`发了表情包: ${cat}`);
+      mirrorImageToChannel(file);
       emit('reply', 'meme', `表情包：${cat}`);
       return true;
     }
     await sendWithRetry('send_private_msg', { user_id: Number(uid), message: [{ type: 'image', data: { file: 'file://' + file } }] }, 2);
     log(`发了表情包: ${cat}`);
+    mirrorImageToChannel(file);
     emit('reply', 'meme', `表情包：${cat}`);
     return true;
   } catch (e) { log('表情包发送失败:', e.message); return false; }
@@ -764,6 +766,22 @@ function mirrorInboundToChannel(text) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(ct ? { 'X-Channel-Token': ct } : {}) },
       body: JSON.stringify({ dir: 'in', text, at: Date.now() }),
+      signal: AbortSignal.timeout(4000),
+    }).catch(() => {});
+  } catch {}
+}
+
+
+// 出站图片/表情：也记一份进新通道（客户端按 /media 取）
+function mirrorImageToChannel(localPath) {
+  try {
+    const cu = process.env.CHANNEL_URL;
+    const ct = process.env.CHANNEL_TOKEN || '';
+    if (!cu || !localPath) return;
+    fetch(`${cu.replace(/\/$/, '')}/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(ct ? { 'X-Channel-Token': ct } : {}) },
+      body: JSON.stringify({ text: '', images: [{ url: localPath }] }),
       signal: AbortSignal.timeout(4000),
     }).catch(() => {});
   } catch {}
