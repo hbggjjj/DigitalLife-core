@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { trace as traceCall } from '../utils/trace.mjs';
 
-const LIFE = process.env.LIFE_DIR || '/home/ni/life';
+const LIFE = process.env.LIFE_DIR || '/var/lib/digitallife';
 const DIR = path.join(LIFE, 'inner');
 
 function cfg() {

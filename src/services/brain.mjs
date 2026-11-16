@@ -7,7 +7,7 @@ import path from 'node:path';
 import { emit } from '../utils/events.mjs';
 import { snapshot, verify } from '../utils/guard.mjs';
 
-const LIFE = '/home/ni/life';
+const LIFE = '/var/lib/digitallife';
 const LOCK = path.join(LIFE, '.agent.lock');
 const LOG = path.join(LIFE, 'agent.log');
 

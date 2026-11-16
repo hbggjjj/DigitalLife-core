@@ -9,7 +9,7 @@ if (!AT || !FRAGMENT || !Q) {
   console.log('用法：node scripts/experiment-ablation.mjs <trace-at> "<记忆片段>" "<提问>" [次数]');
   process.exit(1);
 }
-const LIFE = process.env.LIFE_DIR || '/home/ni/life';
+const LIFE = process.env.LIFE_DIR || '/var/lib/digitallife';
 const ROOT = process.env.QQBOT_ROOT || process.cwd();
 const CFG = JSON.parse(fs.readFileSync(`${ROOT}/bot/config.json`, 'utf8'));
 const KEY = process.env.DEEPSEEK_API_KEY || CFG.deepseek.apiKey;

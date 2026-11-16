@@ -222,7 +222,7 @@ function inActiveWindow(d = new Date()) {
 function agentTask(mode) {
   const idea = listIdeas(3);
   return [
-    '你在 /home/ni/life 里生活，只能在这个目录里活动。不要读写、不要修改 /home/ni/life 之外的任何路径（/root、/opt、/app、/data 都是禁区）。读 SELF.md、memory.md、mood.md，翻一眼 journal/。',
+    '你在 /var/lib/digitallife 里生活，只能在这个目录里活动。不要读写、不要修改 /var/lib/digitallife 之外的任何路径（/root、/opt、/app、/data 都是禁区）。读 SELF.md、memory.md、mood.md，翻一眼 journal/。',
     '现在没有人跟你说话。你可以看看自己想说什么。',
     '写一条要发给风的消息。1~3 段，每段不超过 40 字，段间用 ||| 分隔。',
     '不要说"我刚在想"，不要解释你为什么发这条。',
@@ -291,7 +291,7 @@ async function fireOnce(mode = 'idle') {
     if (i < segs.length - 1) await sleep(400 + Math.random() * 900);
   }
   const via = channelNow();
-  const ARC = (process.env.LIFE_DIR || '/home/ni/life') + '/chat-archive.jsonl';
+  const ARC = (process.env.LIFE_DIR || '/var/lib/digitallife') + '/chat-archive.jsonl';
   const newRows = segs.map((sg) => ({ id: Math.random().toString(16).slice(2, 6), dir: 'out', text: sg, at: Date.now(), via }));
   try { for (const r of newRows) fs.appendFileSync(ARC, JSON.stringify(r) + '\n'); } catch {}
   state.history = [...(state.history || []), ...newRows].slice(-300);
@@ -317,7 +317,7 @@ function factsForHer(st) {
   if (sent24) parts.push(`最近 24 小时发了 ${sent24} 条`);
   // 他回没回：从归档里看最近他的消息时间与连发条数
   try {
-    const arc = (process.env.LIFE_DIR || '/home/ni/life') + '/chat-archive.jsonl';
+    const arc = (process.env.LIFE_DIR || '/var/lib/digitallife') + '/chat-archive.jsonl';
     const lines = fs.readFileSync(arc, 'utf8').trim().split('\n').slice(-60);
     let streak = 0, lastIn = 0;
     for (let i = lines.length - 1; i >= 0; i--) {
@@ -436,7 +436,7 @@ try {
       id, at: new Date().toISOString(), title, why,
       files: files || '', decision: d.allow ? (d.trust ? 'allowed-trust' : 'allowed-detail') : 'denied', trust: !!d.trust, say: d.say,
     };
-    fsn.appendFileSync('/home/ni/life/change-requests.jsonl', JSON.stringify(rec) + '\n');
+    fsn.appendFileSync('/var/lib/digitallife/change-requests.jsonl', JSON.stringify(rec) + '\n');
 
     const kind = d.allow ? (d.trust ? '同意（信任授权）' : '同意（要求先看细节）') : '不同意';
     console.log(`[${id}] 她的决定: ${kind}`);
@@ -467,7 +467,7 @@ try {
   else if (cmd === 'wish') {
     // 维护者用：看愿望 / 标记结果
     const fs2 = await import('node:fs');
-    const fp = '/home/ni/life/wishes.md';
+    const fp = '/var/lib/digitallife/wishes.md';
     const [action, id, ...note] = rest;
     const text = note.join(' ');
     let t = fs2.readFileSync(fp, 'utf8');

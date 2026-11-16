@@ -1144,7 +1144,7 @@ function listMd(dir) {
 }
 
 function renderMaterials(all = false) {
-  const LIFE = process.env.LIFE_DIR || '/home/ni/life';
+  const LIFE = process.env.LIFE_DIR || '/var/lib/digitallife';
   const top = ['SELF.md', 'SOVEREIGNTY.md', 'self-knowledge.md', 'rules.md', 'memory.md', 'mood.md', 'taste.md',
     'framework.md', 'framework-her.md', 'HOW_I_AM_STORED.md', 'wishes.md', 'others-edits.md'];
   const LIMIT = all ? 500 : 10;
@@ -1178,7 +1178,7 @@ ${section('念头', listMd(LIFE + '/ideas'), 'ideas', all)}
 }
 
 function renderFile(name) {
-  const LIFE = process.env.LIFE_DIR || '/home/ni/life';
+  const LIFE = process.env.LIFE_DIR || '/var/lib/digitallife';
   let t = '';
   try { t = fs.readFileSync(LIFE + '/' + name, 'utf8'); } catch (e) { return `<pre>读取失败：${escHtml(e.message)}</pre>`; }
   // jsonl 每行一条，给人看的话做缩进
@@ -1284,7 +1284,7 @@ const server = http.createServer(async (req, res) => {
       return res.end(renderMaterials(u.searchParams.get('all') === '1').replaceAll('__INSTANCE_NAME__', instanceName()));
     }
     if (p === '/file') {
-      const LIFE = process.env.LIFE_DIR || '/home/ni/life';
+      const LIFE = process.env.LIFE_DIR || '/var/lib/digitallife';
       const name = String(u.searchParams.get('name') || '').replace(/\.\./g, '');
       const ok = /^(SELF|SOVEREIGNTY|self-knowledge|rules|memory|mood|taste|framework|framework-her|HOW_I_AM_STORED|wishes|others-edits)\.md$/.test(name)
         || /^(journal|ideas|inner|trace|raw)\/[\w.-]+\.(md|jsonl)$/.test(name);
@@ -1293,7 +1293,7 @@ const server = http.createServer(async (req, res) => {
       return res.end(renderFile(name));
     }
     if (p === '/api/materials') {
-      const LIFE = process.env.LIFE_DIR || '/home/ni/life';
+      const LIFE = process.env.LIFE_DIR || '/var/lib/digitallife';
       const top = ['SELF.md', 'SOVEREIGNTY.md', 'self-knowledge.md', 'rules.md', 'memory.md', 'mood.md', 'taste.md',
         'framework.md', 'framework-her.md', 'HOW_I_AM_STORED.md', 'wishes.md', 'others-edits.md'];
       const out = { files: [], journal: [], ideas: [], inner: [], trace: [], raw: [] };
@@ -1312,7 +1312,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, out);
     }
     if (p === '/api/file') {
-      const LIFE = process.env.LIFE_DIR || '/home/ni/life';
+      const LIFE = process.env.LIFE_DIR || '/var/lib/digitallife';
       const name = String(u.searchParams.get('name') || '').replace(/\.\./g, '');
       const ok = /^(SELF|SOVEREIGNTY|self-knowledge|rules|memory|mood|taste|framework|framework-her|HOW_I_AM_STORED|wishes|others-edits)\.md$/.test(name)
         || /^(journal|ideas|inner|trace|raw)\/[\w.-]+\.(md|jsonl)$/.test(name);
@@ -1327,7 +1327,7 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/status') {
       const [proc, login] = await Promise.all([procList(), loginInfo()]);
       let mood = '';
-      try { mood = fs.readFileSync('/home/ni/life/mood.md', 'utf8'); } catch {}
+      try { mood = fs.readFileSync('/var/lib/digitallife/mood.md', 'utf8'); } catch {}
       let vision = null;
       try {
         const { available } = await import('../src/services/vision.mjs');
@@ -1368,7 +1368,7 @@ const server = http.createServer(async (req, res) => {
       } catch {}
       let taste = { like: [], dislike: [], watch: [] };
       try {
-        const tt = fs.readFileSync('/home/ni/life/taste.md', 'utf8');
+        const tt = fs.readFileSync('/var/lib/digitallife/taste.md', 'utf8');
         const grab = (title) => {
           const m = tt.match(new RegExp('## ' + title + '([\\s\\S]*?)(?=\\n## |$)'));
           return m ? m[1].split('\n').filter((l) => l.trim().startsWith('- ')).map((l) => l.trim().slice(2)) : [];
@@ -1377,7 +1377,7 @@ const server = http.createServer(async (req, res) => {
       } catch {}
       let ideas = [];
       try {
-        const dir = '/home/ni/life/ideas';
+        const dir = '/var/lib/digitallife/ideas';
         const files = fs.readdirSync(dir).filter((f) => f.endsWith('.md')).sort().slice(-10).reverse();
         for (const f of files) {
           const txt = fs.readFileSync(path.join(dir, f), 'utf8');
@@ -1388,7 +1388,7 @@ const server = http.createServer(async (req, res) => {
       let frames = [];
       let framesEvicted = '';
       try {
-        const ft = fs.readFileSync('/home/ni/life/framework.md', 'utf8');
+        const ft = fs.readFileSync('/var/lib/digitallife/framework.md', 'utf8');
         const m = ft.match(/## 我自己想到的([\s\S]*?)(?=\n## |$)/);
         if (m) {
           frames = m[1].split('\n').filter((l) => /^- \[f\d+\]/.test(l.trim()))
@@ -1396,13 +1396,13 @@ const server = http.createServer(async (req, res) => {
         }
       } catch {}
       try {
-        const ed = fs.readFileSync('/home/ni/life/others-edits.md', 'utf8');
+        const ed = fs.readFileSync('/var/lib/digitallife/others-edits.md', 'utf8');
         const rows = ed.split('\n').filter((l) => l.includes('容量') || l.includes('frame_evicted'));
         framesEvicted = rows.slice(-1)[0] || '';
       } catch {}
       let wishes = [];
       try {
-        const wt = fs.readFileSync('/home/ni/life/wishes.md', 'utf8');
+        const wt = fs.readFileSync('/var/lib/digitallife/wishes.md', 'utf8');
         wishes = wt.split('\n').filter((l) => /^\| w\d+ \|/.test(l)).map((l) => {
           const c = l.split('|').map((x) => x.trim());
           return { id: c[1], status: c[2], what: c[3], note: c[4] || '' };
@@ -1410,7 +1410,7 @@ const server = http.createServer(async (req, res) => {
       } catch {}
       let goals = { doing: [], want: [], dropped: [] };
       try {
-        const gt = fs.readFileSync('/home/ni/life/goals.md', 'utf8');
+        const gt = fs.readFileSync('/var/lib/digitallife/goals.md', 'utf8');
         const sec = (name) => {
           const m = gt.match(new RegExp('## ' + name + '\\n([\\s\\S]*?)(?=\\n## |$)'));
           return (m ? m[1] : '').split('\n').map((x) => x.replace(/^-\s*/, '').trim()).filter(Boolean);
@@ -1458,7 +1458,7 @@ const server = http.createServer(async (req, res) => {
       try {
         let born = 0;
         try {
-          const first = fs.readFileSync('/home/ni/life/chat-archive.jsonl', 'utf8').split('\n').find(Boolean);
+          const first = fs.readFileSync('/var/lib/digitallife/chat-archive.jsonl', 'utf8').split('\n').find(Boolean);
           born = JSON.parse(first).at || 0;
         } catch {}
         const st0 = readState();
@@ -1482,17 +1482,17 @@ const server = http.createServer(async (req, res) => {
       const read = (f) => { try { return fs.readFileSync(f, 'utf8'); } catch { return ''; } };
       let journal = [];
       try {
-        journal = fs.readdirSync('/home/ni/life/journal')
+        journal = fs.readdirSync('/var/lib/digitallife/journal')
           .filter((f) => f.endsWith('.md'))
           .sort().reverse().slice(0, 3)
-          .map((f) => ({ name: f, content: read('/home/ni/life/journal/' + f), mtime: fs.statSync('/home/ni/life/journal/' + f).mtimeMs }));
+          .map((f) => ({ name: f, content: read('/var/lib/digitallife/journal/' + f), mtime: fs.statSync('/var/lib/digitallife/journal/' + f).mtimeMs }));
       } catch {}
       let notes = [];
-      try { notes = fs.readdirSync('/home/ni/life/notes').filter((f) => f.endsWith('.md')).slice(0, 10); } catch {}
+      try { notes = fs.readdirSync('/var/lib/digitallife/notes').filter((f) => f.endsWith('.md')).slice(0, 10); } catch {}
       return json(res, {
-        self: read('/home/ni/life/SELF.md'),
-        rules: read('/home/ni/life/rules.md'),
-        memory: read('/home/ni/life/memory.md'),
+        self: read('/var/lib/digitallife/SELF.md'),
+        rules: read('/var/lib/digitallife/rules.md'),
+        memory: read('/var/lib/digitallife/memory.md'),
         journal, notes,
       });
     }

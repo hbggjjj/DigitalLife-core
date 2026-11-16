@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 
-const LIFE = process.env.LIFE_DIR || '/home/ni/life';
+const LIFE = process.env.LIFE_DIR || '/var/lib/digitallife';
 const WISHES = `${LIFE}/wishes.md`;
 const ROOT = '/root/qqbot';
 

@@ -20,7 +20,7 @@ export function knownChars() {
   if (cache && Date.now() - builtAt < TTL) return cache;
   const set = new Set();
   for (const c of COMMON) set.add(c);
-  const LIFE = '/home/ni/life';
+  const LIFE = '/var/lib/digitallife';
   addFromFile(set, `${LIFE}/SELF.md`);
   addFromFile(set, `${LIFE}/memory.md`);
   addFromFile(set, `${LIFE}/mood.md`);

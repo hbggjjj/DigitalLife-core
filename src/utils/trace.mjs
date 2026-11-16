@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const LIFE = process.env.LIFE_DIR || '/home/ni/life';
+const LIFE = process.env.LIFE_DIR || '/var/lib/digitallife';
 const MAX_CHARS = 20000;
 
 export function trace({ kind = 'reply', model = '', messages = [], raw = '' }) {

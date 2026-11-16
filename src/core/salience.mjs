@@ -89,7 +89,7 @@ export async function rerank(query, candidates) {
 export function bumpHits(items) {
   if (!items || !items.length) return 0;
   try {
-    const p2 = (process.env.LIFE_DIR || '/home/ni/life') + '/memory.md';
+    const p2 = (process.env.LIFE_DIR || '/var/lib/digitallife') + '/memory.md';
     const lines = fs.readFileSync(p2, 'utf8').split('\n');
     const want = new Map(items.map((x) => [String(x.text).trim(), x]));
     let changed = 0;

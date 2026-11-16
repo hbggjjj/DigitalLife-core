@@ -9,7 +9,7 @@ export function instanceName() {
     if (cfg && cfg.instanceName) return String(cfg.instanceName).trim();
   } catch {}
   try {
-    const life = process.env.LIFE_DIR || '/home/ni/life';
+    const life = process.env.LIFE_DIR || '/var/lib/digitallife';
     const self = fs.readFileSync(path.join(life, 'SELF.md'), 'utf8');
     const m = self.match(/我叫\s*([^\n。，,]{1,24})/) || self.match(/我是\s*([^\n。，,]{1,24})/);
     if (m) return m[1].trim();

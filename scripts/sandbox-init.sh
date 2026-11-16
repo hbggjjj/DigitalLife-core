@@ -6,7 +6,7 @@ ROOT="/root/sandboxes/$NAME"
 [ -e "$ROOT" ] && { echo "已存在：$ROOT"; exit 1; }
 
 mkdir -p "$ROOT/life" "$ROOT/bot"
-cp -a /home/ni/life/SELF.md "$ROOT/life/SELF.md"
+cp -a /var/lib/digitallife/SELF.md "$ROOT/life/SELF.md"
 for f in memory.md mood.md taste.md rules.md framework.md self-knowledge.md wishes.md goals.md others-edits.md; do
   : > "$ROOT/life/$f"
 done

@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const LIFE = process.env.LIFE_DIR || '/home/ni/life';
+const LIFE = process.env.LIFE_DIR || '/var/lib/digitallife';
 const ARC = path.join(LIFE, 'chat-archive.jsonl');
 const out = process.argv[2] || path.join('/root/qqbot-v5/exports', '对话全档.md');
 

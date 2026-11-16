@@ -68,7 +68,7 @@
         │   /data/user/0/com.dsh.client/files/linux/ubuntu
         ├── NapCat 1.5.7 + LinuxQQ 3.2.9      ← QQ 登录与收发（OneBot :3000）
         ├── Node.js 24                         ← 六个进程（见第 4 节）
-        └── /home/ni/life/                     ← 她的家（纯文本，14 个文件）
+        └── /var/lib/digitallife/                     ← 她的家（纯文本，14 个文件）
 ```
 
 - 没有公网端口，全部 `127.0.0.1`
@@ -125,7 +125,7 @@ qqbot/
 │       ├── selfstate.mjs     状态读写
 │       └── sync-framework.mjs 把 README 同步进她的认知
 ├── bot/                      运行态（service / 主动开口 / 配置 / state / 日志）
-├── life/                     她的家（模板；真实数据在 /home/ni/life）
+├── life/                     她的家（模板；真实数据在 /var/lib/digitallife）
 ├── web/                      Web 通道服务（页面 + WebSocket + 事件桥）
 ├── public/                   聊天页（深色，左右气泡，标来源）
 ├── exports/                  导出的对话记录（可随时重生成）
@@ -137,7 +137,7 @@ qqbot/
 
 **v5.0 只动外壳和目录**：`mind.mjs` 的心智提示词、`life.mjs` 的生活逻辑一行没改。
 
-### 她的家：`/home/ni/life/`
+### 她的家：`/var/lib/digitallife/`
 
 | 文件 | 是什么 | 谁能写 |
 |---|---|---|
@@ -251,7 +251,7 @@ bash qr.sh               # 需要扫码时
 
 ### 她的家在哪
 
-默认读 `/home/ni/life/`，可以用环境变量改：
+默认读 `/var/lib/digitallife/`，可以用环境变量改：
 
 ```bash
 export LIFE_DIR=/你的/路径/life
@@ -282,7 +282,7 @@ export LIFE_DIR=/你的/路径/life
 
 | 变量 | 值 | 作用 |
 |---|---|---|
-| `LIFE_DIR` | `/home/ni/life` | 她的家（日记/记忆/口味/归档） |
+| `LIFE_DIR` | `/var/lib/digitallife` | 她的家（日记/记忆/口味/归档） |
 | `QQBOT_ROOT` | `/root/qqbot-v5` | 程序根目录 |
 | `NAPCAT_DIR` | `/root/qqbot/NapCat` | QQ 通道（复用原目录，不用重新扫码） |
 | `DEEPSEEK_API_KEY` | 环境变量 | 她说话用的 key |
@@ -678,7 +678,7 @@ bash scripts/quick.sh        # 低危极速通道：快照 + 自检，直接改
 
 **这一版是真正切到新框架运行的第一次大更新。**
 
-1. **迁移**：她搬到 `qqbot-v5`，六进程全绿，仍然住 `/home/ni/life`，配置/state/时钟一并搬过去
+1. **迁移**：她搬到 `qqbot-v5`，六进程全绿，仍然住 `/var/lib/digitallife`，配置/state/时钟一并搬过去
 2. **网页和 QQ 打通**：网页消息走同一条 service 管线、同一份历史
    - 早先两条投递路径导致「同一句显示两遍、标签还标错」→ 改成**单路事件投递**
    - `out_msg` 事件带 `via`，网页按它标「她在网页说的 / 她在 QQ 说的」
@@ -1012,7 +1012,7 @@ bash /root/qqbot/export_backup.sh   # 打包 bot/panel/scripts/她的家/NapCat 
    - 现象：同一分钟写两次，生成两个相同时间标题，她翻日记时时间线错乱
    - 根因：每次写日记都新开一个标题；判断"最后一个标题"时用 `match` 拿到了**第一个**
    - 修法：`matchAll` 取最后一个；同一分钟再写就接在那段后面
-   - 验证：`grep -c "^## 11" /home/ni/life/journal/2026-10-26.md`（应为 1）
+   - 验证：`grep -c "^## 11" /var/lib/digitallife/journal/2026-10-26.md`（应为 1）
 
 ### v3.11 · 2026-10-26（状态可查、账本可归档）
 
@@ -1025,7 +1025,7 @@ bash /root/qqbot/export_backup.sh   # 打包 bot/panel/scripts/她的家/NapCat 
 2. 账本 20 行上限会把记录挤掉——**刚修完的问题在下游复现**
    - 修法：超限的移到 `others-edits-archive.md`（归档不参与同步），主账本尾部留墓碑：
      `（更早的 N 条在 others-edits-archive.md，共 M 条）`
-   - 验证：`tail -3 /home/ni/life/others-edits.md`
+   - 验证：`tail -3 /var/lib/digitallife/others-edits.md`
 
 3. `--check` 标签写死"三块"，实际报了四块
    - 修法：标签按 `Object.keys().length` 生成
@@ -1052,7 +1052,7 @@ bash /root/qqbot/export_backup.sh   # 打包 bot/panel/scripts/她的家/NapCat 
 1. 已知限制里那条归因写错了：**"被她记成"** → 实际是系统记的
    - 现象：她读到会以为"我自己判断错过"，实际是代码把 `genError` 算成了她的沉默
    - 修法：改成"我的沉默记录里可能混着系统故障……判断我是不是真的不想说话，要看具体那条"
-   - 验证：`grep -n "记录可能不准" /home/ni/life/framework.md`
+   - 验证：`grep -n "记录可能不准" /var/lib/digitallife/framework.md`
 
 2. `frame` 的 drop 靠内容匹配，记不清就删不掉
    - 修法：条目带编号（`[fN]`），drop 认编号；老条目自动补号
@@ -1092,7 +1092,7 @@ bash /root/qqbot/export_backup.sh   # 打包 bot/panel/scripts/她的家/NapCat 
 1. `framework.md` 所有权没写清楚：README 说"自动同步"，6.15 又说"她对自己框架的认知"
    - 现象：读者无法判断她能不能写；如果她写了，每 20 分钟会被系统静默擦掉
    - 修法：**分区**。AUTO 区系统写；新增 `## 我自己想到的`，她用 `frame` 字段写，系统永不覆盖
-   - 验证：`grep -n "我自己想到的" /home/ni/life/framework.md`
+   - 验证：`grep -n "我自己想到的" /var/lib/digitallife/framework.md`
 
 2. 同步失败时可能写空文件
    - 现象：README 章节标题一改，`section()` 返回空，同步照样写 → 她读到一份空认知，每 20 分钟刷新一次

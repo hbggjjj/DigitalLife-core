@@ -16,12 +16,12 @@ COUNT=$(wc -l < "$AUDIT")
 LINE="$TODAY  lines=$COUNT  last=$HASH"
 
 # 今天已经锚过就不重复
-if grep -q "^$TODAY " /home/ni/life/audit-anchor.log 2>/dev/null; then
+if grep -q "^$TODAY " /var/lib/digitallife/audit-anchor.log 2>/dev/null; then
   echo "今天已锚定过，跳过"
   exit 0
 fi
 OUT1=/sdcard/Download/audit-anchor.log        # 容器外，手机上能看到
-OUT2=/home/ni/life/audit-anchor.log           # 她那边也留一份
+OUT2=/var/lib/digitallife/audit-anchor.log           # 她那边也留一份
 echo "$LINE" >> "$OUT1" 2>/dev/null || true
 echo "$LINE" >> "$OUT2"
 echo "锚定：$LINE"

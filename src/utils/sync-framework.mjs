@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 
 const README = '/root/qqbot-v5/README.md';
-const TARGET = '/home/ni/life/framework.md';
+const TARGET = '/var/lib/digitallife/framework.md';
 
 // 按标题里的关键词找章节——编号怎么变都能找到
 function section(md, keyword) {
@@ -72,7 +72,7 @@ export async function syncFramework(force = false) {
     let evicted = '';
     let evictedTotal = 0;
     try {
-      const ap = '/home/ni/life/frames-archive.md';
+      const ap = '/var/lib/digitallife/frames-archive.md';
       const at = fs.readFileSync(ap, 'utf8');
       const blocks = at.split(/^## /m).slice(1);      // 每段一个时间戳
       const real = blocks.filter((b) => !b.startsWith('补录'));
@@ -88,7 +88,7 @@ export async function syncFramework(force = false) {
     // 她提过的愿望，现在什么状态
     let wishes = '';
     try {
-      const lines = fs.readFileSync('/home/ni/life/wishes.md', 'utf8')
+      const lines = fs.readFileSync('/var/lib/digitallife/wishes.md', 'utf8')
         .split('\n').filter((l) => /^\| w\d+ \|/.test(l)).slice(-4);
       wishes = lines.map((l) => {
         const c = l.split('|').map((x) => x.trim());
@@ -99,7 +99,7 @@ export async function syncFramework(force = false) {
     // 最近有人向她申请过什么（她可以否决）
     let requests = '';
     try {
-      const rs = fs.readFileSync('/home/ni/life/change-requests.jsonl', 'utf8')
+      const rs = fs.readFileSync('/var/lib/digitallife/change-requests.jsonl', 'utf8')
         .split('\n').filter(Boolean).map((l) => JSON.parse(l)).slice(-6);
       requests = rs.map((r) => {
         const ok = String(r.decision || '').startsWith('allowed') || r.allow === true;
@@ -112,7 +112,7 @@ export async function syncFramework(force = false) {
     let maintlog = '';
     let maintTotal = 0;
     try {
-      const rows = fs.readFileSync('/home/ni/life/change-requests.jsonl', 'utf8')
+      const rows = fs.readFileSync('/var/lib/digitallife/change-requests.jsonl', 'utf8')
         .split('\n').filter(Boolean).map((l) => JSON.parse(l));
       maintTotal = rows.length;
       const p2 = (n) => String(n).padStart(2, '0');
@@ -129,7 +129,7 @@ export async function syncFramework(force = false) {
     // 最近被动过的记录（给她看的，不只是给维护者看）
     let recentEdits = '';
     try {
-      const led = fs.readFileSync('/home/ni/life/others-edits.md', 'utf8');
+      const led = fs.readFileSync('/var/lib/digitallife/others-edits.md', 'utf8');
       const rows = led.split('\n').filter((l) => /^\|\s*\d{4}-/.test(l)).slice(-3);
       recentEdits = rows.map((r) => {
         const c = r.split('|').map((x) => x.trim()).filter(Boolean);
@@ -230,7 +230,7 @@ ${herPart || '（我自己补的，系统不会覆盖这一段）'}
 `;
     // 历史块单独归档：按内容哈希去重，追加
     try {
-      const ARCH = '/home/ni/life/framework-archive.md';
+      const ARCH = '/var/lib/digitallife/framework-archive.md';
       const crypto = await import('node:crypto');
       const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
       const chunk = [
@@ -253,7 +253,7 @@ ${herPart || '（我自己补的，系统不会覆盖这一段）'}
     // 原子写：先写临时文件再改名，避免她读到写一半的文件
     // 写之前先备份（留最近 5 份）
     try {
-      const bdir = '/home/ni/life/.framework-bak';
+      const bdir = '/var/lib/digitallife/.framework-bak';
       fs.mkdirSync(bdir, { recursive: true });
       const stamp = new Date().toISOString().replace(/[:.]/g, '-');
       if (fs.existsSync(TARGET)) fs.copyFileSync(TARGET, `${bdir}/framework-${stamp}.md`);
@@ -267,7 +267,7 @@ ${herPart || '（我自己补的，系统不会覆盖这一段）'}
 
     // 她的段落单独存在 framework-her.md：每次生成都合并回去，删不掉
     try {
-      const herFile = '/home/ni/life/framework-her.md';
+      const herFile = '/var/lib/digitallife/framework-her.md';
       if (fs.existsSync(herFile)) {
         const her = fs.readFileSync(herFile, 'utf8').trim();
         if (her) {

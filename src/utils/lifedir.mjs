@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const REAL_HOME = '/home/ni/life';
+const REAL_HOME = '/var/lib/digitallife';
 
 function fingerprint(dir) {
   try {

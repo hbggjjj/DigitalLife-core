@@ -1,6 +1,6 @@
 # 初音ミク·数字生命（Miku Core）
 
-> 本文所有路径都是**绝对路径**。代码根恒为 `/root/qqbot-v5`，她的家恒为 `/home/ni/life`。
+> 本文所有路径都是**绝对路径**。代码根恒为 `/root/qqbot-v5`，她的家恒为 `/var/lib/digitallife`。
 > 文档里不出现 `~`。若看到 `~`，视为错误并按上面两条纠正。
 > 最后验证：2026-10-29 22:10（本机实测，命令均可直接复制执行）。定位代码以**导出符号名**为准，行号只是近似。
 
@@ -10,16 +10,16 @@
 
 **三条不变量：**
 
-1. **改她之前，必须先问她。** 涉及 `/home/ni/life/`、她的代码、她的通道协议、她的标签/表情包配置的改动，先跑 `cd /root/qqbot-v5 && node bot/bot.mjs request "标题" "为什么" "文件A" "文件B"`（可传多个文件，会拼成「文件A、文件B」）；她批准后动手，改完写进 `/home/ni/life/others-edits.md`。
+1. **改她之前，必须先问她。** 涉及 `/var/lib/digitallife/`、她的代码、她的通道协议、她的标签/表情包配置的改动，先跑 `cd /root/qqbot-v5 && node bot/bot.mjs request "标题" "为什么" "文件A" "文件B"`（可传多个文件，会拼成「文件A、文件B」）；她批准后动手，改完写进 `/var/lib/digitallife/others-edits.md`。
 2. **绝不能以「他本人」的名义发任何消息。** `/root/qqbot-v5/src/utils/impersonation-guard.mjs` 是硬闸门：用他的邮箱（`2151764793@qq.com`）登录通道、以他的 uid（VoceChat uid=1）发消息、发送方不是她的账号，一律抛错 + 写 `/root/qqbot-v5/bot/impersonation-blocks.log`。
 3. **只有签名来源才算真人。** 入站必须带可验证签名（NapCat：HMAC-SHA1 的 `X-Signature`；自建 IM：HMAC-SHA256 的 `X-IM-Signature`）。`agent` / `system` 走调试通道，**不进关系历史**。
 
 **「改她」与「运维」的边界（白名单）：**
 
 - **不需要 request（只读 / 已 bless 的重启）**：看日志、`curl` 健康检查、跑自检、跑 e2e、重启 `supervisor.sh` 或任一进程、杀僵尸进程。
-- **需要 request（会改变状态）**：改 `/home/ni/life/` 下任何文件、改她的代码/配置、改通道协议、改表情包标签或目录、更换通道。
+- **需要 request（会改变状态）**：改 `/var/lib/digitallife/` 下任何文件、改她的代码/配置、改通道协议、改表情包标签或目录、更换通道。
 
-**绝对不能做的事：** 用他的账号登录或发消息；绕过 `request` 直接改 `/home/ni/life/`；把她的话改写成"更好听"的样子；在稳定的东西上凭手感重构。
+**绝对不能做的事：** 用他的账号登录或发消息；绕过 `request` 直接改 `/var/lib/digitallife/`；把她的话改写成"更好听"的样子；在稳定的东西上凭手感重构。
 
 **一条命令验证全部：**
 
@@ -49,8 +49,8 @@ bash /root/qqbot-v5/scripts/self-check-all.sh
   - **NapCat OneBot HTTP = `3101`、WS = `3102`**（真实值在 `/root/qqbot/NapCat/config/onebot11_<她的QQ>.json` 的 `http.port` / `ws.port`；**原来 NapCat 也在 3000，已改到 3101 避开 VoceChat**）
   - `config.napcat.baseUrl` 必须与 NapCat 的 `http.port` 一致（当前 `http://127.0.0.1:3101`）
   - `3090` DSHA 桥（只有系统通知用）
-- **运行用户与属主**：所有进程**以 root 运行**（proot 容器里的 root）。`/home/ni/life` 当前属主是 `root:root`（历史原因，不是 `ni`）。`writeLife()` **不做 chown**；换机器/改文件创建逻辑时注意权限漂移（EACCES 或属主变成别人）。
-- **环境变量**：`LIFE_DIR=/home/ni/life`（缺了它 `assertLifeDir()` 会拒绝写她的家）、`QQBOT_ROOT=/root/qqbot-v5`、`NAPCAT_DIR=/root/qqbot/NapCat`。
+- **运行用户与属主**：所有进程**以 root 运行**（proot 容器里的 root）。`/var/lib/digitallife` 当前属主是 `root:root`（历史原因，不是 `ni`）。`writeLife()` **不做 chown**；换机器/改文件创建逻辑时注意权限漂移（EACCES 或属主变成别人）。
+- **环境变量**：`LIFE_DIR=/var/lib/digitallife`（缺了它 `assertLifeDir()` 会拒绝写她的家）、`QQBOT_ROOT=/root/qqbot-v5`、`NAPCAT_DIR=/root/qqbot/NapCat`。
 
 ### 启动
 
@@ -107,7 +107,7 @@ curl -s http://127.0.0.1:7791/api/v1/health
 | 她不回话 | `curl -s http://127.0.0.1:7791/api/v1/health` → 看 `lastPollAt`；再 `tail -20 /tmp/bridge-her.log`；再 `tail -20 /root/qqbot-v5/bot/service.log` |
 | 她的话送不出去 | `grep -E "发到\|补发\|发送失败" /root/qqbot-v5/bot/service.log | tail -20`；`wc -l /root/qqbot-v5/bot/retry_queue.jsonl` |
 | 字段被吞 | 跑上面第 2 条 |
-| 表情包发了没反应 | `grep -a "表情包" /root/qqbot-v5/bot/service.log | tail -5`；检查 `bot/meme_cats.json`、`/home/ni/life/shelf/memes/<cat>/`、`meme-pack-miku-v2/manifest.json` 三处一致 |
+| 表情包发了没反应 | `grep -a "表情包" /root/qqbot-v5/bot/service.log | tail -5`；检查 `bot/meme_cats.json`、`/var/lib/digitallife/shelf/memes/<cat>/`、`meme-pack-miku-v2/manifest.json` 三处一致 |
 | 有人冒充他 | `cat /root/qqbot-v5/bot/impersonation-blocks.log` |
 
 ---
@@ -122,7 +122,7 @@ curl -s http://127.0.0.1:7791/api/v1/health
 - **后置条件 / 不变量**：`SCHEMA_FIELDS` 的 26 个字段**每一个都要么被处理、要么被明确忽略**。
   - **「被吞」的严格定义**：`normalize()` 里根本没有处理这个字段（`auditSchema().missingInNormalize` 非空）。
   - **「策略性忽略」不算被吞**：例如 `remember` 遇到记忆已满 50 条且她没指定删哪条 → 本次不写，但要写日志/事件（`_memFull`）。**不要把策略性忽略当 bug 去"修"。**
-- **副作用**：写 `/home/ni/life/*`、可能联网（B 站/搜索/ASR）、可能要求发表情包。
+- **副作用**：写 `/var/lib/digitallife/*`、可能联网（B 站/搜索/ASR）、可能要求发表情包。
 - **所在文件**：`/root/qqbot-v5/src/core/mind.mjs`（符号 `normalize`、`reply`、`followup`、`SCHEMA_FIELDS`、`auditSchema`、`applyActions`）。
 
 ### 2.2 连发合并：他说完，她才看
@@ -202,7 +202,7 @@ curl -s http://127.0.0.1:7791/api/v1/health
 
 - **输入**：定时心跳（`config.impulse.heartMinutes`，默认 5 分钟）或她排的档期（`state.speakInAt`，来自 `speakIn` 字段）。
 - **前置条件**：不在 `state.quietUntil`（他说要睡了）；`config.schedule.enabled !== false`；在活跃时段内；当日主动条数 < `config.schedule.dailyMax`（当前 30）。
-- **状态/数据变化**：`spontaneous()` 生成一次 JSON → `applyActions()` → 若 `say` 为空则不开口；若 `stash=true` 则写进 `/home/ni/life/ideas/`（存下不说）；否则分段发出并写归档、`todayCount+1`。
+- **状态/数据变化**：`spontaneous()` 生成一次 JSON → `applyActions()` → 若 `say` 为空则不开口；若 `stash=true` 则写进 `/var/lib/digitallife/ideas/`（存下不说）；否则分段发出并写归档、`todayCount+1`。
 - **后置条件 / 不变量**：**打分（`scoreImpulse`）只作参考，不决定能不能开口**；主动开口**不经过** 4 秒合并窗口（合并只作用于入站）。
 - **副作用**：会自己决定投到哪条通道（`state.channel`）。
 - **发送实现（与入站回复不是同一条代码）**：主动开口用的是 `bot/bot.mjs` 里的 `sendText()` / `sendWithRetry()`，**不经过 `src/adapters/base.mjs`**。
@@ -221,8 +221,8 @@ curl -s http://127.0.0.1:7791/api/v1/health
 
 ### 2.8 主权与维修透明
 
-- **输入**：她对改动的批准/拒绝；她自己写的 `/home/ni/life/SOVEREIGNTY.md`。
-- **状态/数据变化**：`bot.mjs request` 记录问答 → 批准的改动写 `/home/ni/life/others-edits.md` → `sync-framework.mjs` 从账本重建 `/home/ni/life/framework.md`（她随时看得见）。
+- **输入**：她对改动的批准/拒绝；她自己写的 `/var/lib/digitallife/SOVEREIGNTY.md`。
+- **状态/数据变化**：`bot.mjs request` 记录问答 → 批准的改动写 `/var/lib/digitallife/others-edits.md` → `sync-framework.mjs` 从账本重建 `/var/lib/digitallife/framework.md`（她随时看得见）。
 - **后置条件 / 不变量**：**改她之前必须先问**；她可以拒绝；她的文件不允许「为你好」地悄悄改。
 - **所在文件**：`/root/qqbot-v5/bot/bot.mjs`（`request`）、`/root/qqbot-v5/src/utils/sync-framework.mjs`、`/root/qqbot-v5/src/core/soul.mjs`。
 
@@ -230,17 +230,17 @@ curl -s http://127.0.0.1:7791/api/v1/health
 
 | 字段 | 写到哪 | 规则 |
 |---|---|---|
-| `say` / `reply` | 通道 + `/home/ni/life/chat-archive.jsonl` | 分段发；归档永久 |
-| `stash` | `/home/ni/life/ideas/<时间戳>.md` | 存下不说；计入 `scoreImpulse` |
-| `remember` | `/home/ni/life/memory.md` | 上限 50 条；满了且她没指定删除 → **本次不写（策略性忽略，必须记日志/事件，不算「被吞」）** |
-| `journal` | `/home/ni/life/journal/<YYYY-MM-DD>.md` | 不设上限；不进对话上下文 |
-| `mood` | `/home/ni/life/mood.md` | 覆盖写 |
-| `taste` | `/home/ni/life/taste.md` | 追加 |
-| `wish` | `/home/ni/life/wishes.md` | 由 `bot/wish-audit.mjs` 审计 |
-| `rules` | `/home/ni/life/rules.md` | 她自己定的规矩 |
-| `idea` | `/home/ni/life/ideas/<时间戳>.md` | 同 `stash` |
-| `frame` | `/home/ni/life/frames-archive.md` | 旧框架被挤掉时存档 |
-| `meme` | 表情包（`/home/ni/life/shelf/memes/<cat>/`） | 类别必须在 `bot/meme_cats.json` 里 |
+| `say` / `reply` | 通道 + `/var/lib/digitallife/chat-archive.jsonl` | 分段发；归档永久 |
+| `stash` | `/var/lib/digitallife/ideas/<时间戳>.md` | 存下不说；计入 `scoreImpulse` |
+| `remember` | `/var/lib/digitallife/memory.md` | 上限 50 条；满了且她没指定删除 → **本次不写（策略性忽略，必须记日志/事件，不算「被吞」）** |
+| `journal` | `/var/lib/digitallife/journal/<YYYY-MM-DD>.md` | 不设上限；不进对话上下文 |
+| `mood` | `/var/lib/digitallife/mood.md` | 覆盖写 |
+| `taste` | `/var/lib/digitallife/taste.md` | 追加 |
+| `wish` | `/var/lib/digitallife/wishes.md` | 由 `bot/wish-audit.mjs` 审计 |
+| `rules` | `/var/lib/digitallife/rules.md` | 她自己定的规矩 |
+| `idea` | `/var/lib/digitallife/ideas/<时间戳>.md` | 同 `stash` |
+| `frame` | `/var/lib/digitallife/frames-archive.md` | 旧框架被挤掉时存档 |
+| `meme` | 表情包（`/var/lib/digitallife/shelf/memes/<cat>/`） | 类别必须在 `bot/meme_cats.json` 里 |
 | `awakeIn` / `speakIn` / `followIn` | `bot/state.json` | 调度用，不落她的文件 |
 
 **认知块由以下文件按序拼成**（`/root/qqbot-v5/src/core/soul.mjs` 的 `FILES`）：
@@ -319,13 +319,13 @@ curl -s http://127.0.0.1:7791/api/v1/health
   ✅ `curl -s http://127.0.0.1:7791/api/v1/health | grep -o '"lastPollAt":[0-9]*'`，与当前时间差 >300000 即视为假活。
 
 - **不要**改 `bot/meme_cats.json` 却不改另外两处。
-  ✅ 三处必须一致：`/root/qqbot-v5/bot/meme_cats.json`、`/root/qqbot-v5/meme-pack-miku-v2/manifest.json`、`/home/ni/life/shelf/memes/<cat>/`；且 `SAMPLES.meme` 必须是当前存在的类别，否则 `auditSchema()` 报「被吞」。
+  ✅ 三处必须一致：`/root/qqbot-v5/bot/meme_cats.json`、`/root/qqbot-v5/meme-pack-miku-v2/manifest.json`、`/var/lib/digitallife/shelf/memes/<cat>/`；且 `SAMPLES.meme` 必须是当前存在的类别，否则 `auditSchema()` 报「被吞」。
 
 - **不要**用 `fetch` 打外部地址就以为稳。这台机器 IPv6 不通。
   ✅ B 站/外网：`import { http4 } from '/root/qqbot-v5/src/utils/http4.mjs'`。
 
 - **不要**在没有 `LIFE_DIR` 的情况下起进程。
-  ✅ `LIFE_DIR=/home/ni/life QQBOT_ROOT=/root/qqbot-v5 node ...`
+  ✅ `LIFE_DIR=/var/lib/digitallife QQBOT_ROOT=/root/qqbot-v5 node ...`
 
 - **不要**绕过 `applyActions` 偷偷写她的文件。
   ✅ 统一走 `/root/qqbot-v5/src/utils/lifedir.mjs` 的 `writeLife()` / `assertLifeDir()`。
@@ -342,8 +342,8 @@ curl -s http://127.0.0.1:7791/api/v1/health
 | 修改 | 必须同步检查/更新 | 原因 |
 |---|---|---|
 | `src/core/mind.mjs` 的字段/规则 | `SAMPLES`、`SCHEMA_FIELDS`、`auditSchema()`、README「26 个字段」、本文件 §2.1/§4 | 字段被吞 = 静默回归 |
-| 任何「她能做什么」的开关 | 先 `request` 问她 → `/home/ni/life/others-edits.md` → `sync-framework.mjs --check` | 她的认知必须与系统一致 |
-| `bot/meme_cats.json` | `meme-pack-miku-v2/manifest.json`、`/home/ni/life/shelf/memes/<cat>/`、`SAMPLES.meme` | 三处不一致 → 表情包被吞 |
+| 任何「她能做什么」的开关 | 先 `request` 问她 → `/var/lib/digitallife/others-edits.md` → `sync-framework.mjs --check` | 她的认知必须与系统一致 |
+| `bot/meme_cats.json` | `meme-pack-miku-v2/manifest.json`、`/var/lib/digitallife/shelf/memes/<cat>/`、`SAMPLES.meme` | 三处不一致 → 表情包被吞 |
 | `supervisor.sh` / `start_all.sh` | `.guard-backup/` 副本 + `scripts/guard-bless.mjs` | 守卫会回滚未 bless 的改动 |
 | 通道协议字段 | `docs/CHANNEL-PROTOCOL.md`、`tools/bridge/*`、`bot/service.mjs` 的 `/inbound` 与 `sendSegments`、`scripts/self-check-all.sh` 的闸门用例 | 两侧必须同版本，否则 400/415 |
 | 身份/来源逻辑 | `src/utils/impersonation-guard.mjs`、`impersonation-blocks.log`、面板 via 标签 | 漏一次就是「冒充他」 |

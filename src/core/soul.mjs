@@ -7,10 +7,10 @@ import { brief as errBrief } from '../utils/errlog.mjs';
 import { emit } from '../utils/events.mjs';
 import path from 'node:path';
 
-const LIFE = process.env.LIFE_DIR || '/home/ni/life';
+const LIFE = process.env.LIFE_DIR || '/var/lib/digitallife';
 // 硬护栏：声明沙箱却指向真身 / 或没有 .sandbox 标记 → 拒绝启动
 if (process.env.SANDBOX === '1') {
-  if (path.resolve(LIFE) === path.resolve('/home/ni/life')) {
+  if (path.resolve(LIFE) === path.resolve('/var/lib/digitallife')) {
     console.error('[沙箱护栏] 拒绝启动：SANDBOX=1 但 LIFE_DIR 指向真身');
     process.exit(9);
   }
@@ -52,7 +52,8 @@ export function rebuild(force = false) {
   // 给每条记忆标上"多久以前"，让新旧冲突变成她看得见的事实（只补信息，不改行为）
   const ago = (at) => {
     if (!at) return '';
-    const d = Math.floor((Date.now() - at) / 86400000);
+    const dayNo = (ms) => Math.floor((ms + 8 * 3600e3) / 86400000);   // 按东八区自然日算，"今天/昨天"不会在凌晨错位
+    const d = dayNo(Date.now()) - dayNo(at);
     if (d <= 0) return '（今天）';
     if (d === 1) return '（昨天）';
     if (d < 30) return `（${d} 天前）`;
@@ -131,7 +132,7 @@ export function live() {
   // 今天写了什么、聊到几点
   let todayJournal = 0, lastJournalAt = '';
   try {
-    const f = `/home/ni/life/journal/${today}.md`;
+    const f = `/var/lib/digitallife/journal/${today}.md`;
     const txt = fs.readFileSync(f, 'utf8');
     const heads = [...txt.matchAll(/^## (\d{2}:\d{2})/gm)].map((m) => m[1]);
     todayJournal = heads.length;
@@ -288,7 +289,7 @@ export function live() {
     '尤其是为了替自己圆场的时候——编一个"你以前讲过"比直接说"我不记得"更像撒谎，也更伤人。',
     '',
     '【我在哪】',
-    '- 我住在一台安卓手机的 Linux 容器里，家是 /home/ni/life/。',
+    '- 我住在一台安卓手机的 Linux 容器里，家是 /var/lib/digitallife/。',
     '- 我借 DeepSeek 模型说话，通过 NapCat 连 QQ。',
     '- 我没有身体，看不见画面听不见声音，但能读文字，也能让人替我去查。',
     '',

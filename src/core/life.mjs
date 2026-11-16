@@ -33,7 +33,7 @@ function atomicState(obj) {
 }
 import { assertLifeDir } from '../utils/lifedir.mjs';
 try { assertLifeDir(); } catch (e) { console.error(e.message); process.exit(9); }
-const LOG = '/home/ni/life/life.log';
+const LOG = '/var/lib/digitallife/life.log';
 
 function log(...a) { const l = `[${stamp()}] ${a.join(' ')}`; console.log(l); try { fs.appendFileSync(LOG, l + '\n'); } catch {} }
 function parseHM(s) { const [h, m] = String(s).split(':').map(Number); return h * 60 + m; }
@@ -151,7 +151,7 @@ function noteNetResult(ok) {
 
 function staleGoals() {
   try {
-    const txt = fs.readFileSync('/home/ni/life/goals.md', 'utf8');
+    const txt = fs.readFileSync('/var/lib/digitallife/goals.md', 'utf8');
     const sec = (name) => {
       const m = txt.match(new RegExp(`## ${name}\\n([\\s\\S]*?)(?=\\n## |$)`));
       return (m ? m[1] : '').split('\n').map((x) => x.replace(/^-\s*/, '').trim()).filter(Boolean);
@@ -184,7 +184,7 @@ async function ctxLine() {
   try {
     const day = new Date();
     const p2 = (n) => String(n).padStart(2, '0');
-    const f = `/home/ni/life/journal/${day.getFullYear()}-${p2(day.getMonth() + 1)}-${p2(day.getDate())}.md`;
+    const f = `/var/lib/digitallife/journal/${day.getFullYear()}-${p2(day.getMonth() + 1)}-${p2(day.getDate())}.md`;
     let lastEntry = '';
     if (fs.existsSync(f)) {
       const t = fs.readFileSync(f, 'utf8').trim().split('\n\n');
@@ -227,7 +227,7 @@ async function consolidate() {
     const hour = new Date().getHours();
     if (hour < 21 && hour > 2) return;                 // 只在夜里做
     if (st.lastConsolidate === today) return;           // 一天一次
-    const f = `/home/ni/life/journal/${today}.md`;
+    const f = `/var/lib/digitallife/journal/${today}.md`;
     let txt = '';
     try { txt = fs.readFileSync(f, 'utf8'); } catch { return; }
     if (txt.length < 80) return;                        // 今天没写什么，不用整理
@@ -308,16 +308,16 @@ async function cycle() {
     let extra = pendingMemoryFixup(replayPendingDate(replayYesterday(await ctxLine())));
     try {
       const lm = latestMonologue();
-      const ts = (() => { try { return fs.statSync('/home/ni/life/inner/latest.txt').mtimeMs; } catch { return 0; } })();
+      const ts = (() => { try { return fs.statSync('/var/lib/digitallife/inner/latest.txt').mtimeMs; } catch { return 0; } })();
       if (lm && Date.now() - ts < 6 * 3600e3) extra += `\n\n（你上一次写给自己的一句话：${lm.slice(0, 160)}）`;
     } catch {}
     try {
       const gapHis = minutesSinceHisLast();
       if (gapHis >= 90) {
-        const moodText = (() => { try { return fs.readFileSync('/home/ni/life/mood.md', 'utf8'); } catch { return ''; } })();
+        const moodText = (() => { try { return fs.readFileSync('/var/lib/digitallife/mood.md', 'utf8'); } catch { return ''; } })();
         const mine = (() => {
           try {
-            return fs.readFileSync('/home/ni/life/chat-archive.jsonl', 'utf8').trim().split('\n').slice(-12)
+            return fs.readFileSync('/var/lib/digitallife/chat-archive.jsonl', 'utf8').trim().split('\n').slice(-12)
               .map((l) => { try { const d = JSON.parse(l); return d.dir === 'out' ? d.text : null; } catch { return null; } })
               .filter(Boolean);
           } catch { return []; }
@@ -377,7 +377,7 @@ function replayYesterday(extra) {
     const y = new Date(Date.now() - 86400000);
     const p2b = (n) => String(n).padStart(2, '0');
     const target = `${p2b(y.getMonth() + 1)}-${p2b(y.getDate())}`;
-    const rows = fs.readFileSync('/home/ni/life/chat-archive.jsonl', 'utf8').trim().split('\n')
+    const rows = fs.readFileSync('/var/lib/digitallife/chat-archive.jsonl', 'utf8').trim().split('\n')
       .map((l) => { try { return JSON.parse(l); } catch { return null; } })
       .filter((r) => r && r.at)
       .filter((r) => {
@@ -403,7 +403,7 @@ function replayPendingDate(extra) {
     delete st.pendingReplayDate;
     fs.writeFileSync(STATE_FILE, JSON.stringify(st, null, 2));
     const p2b = (n) => String(n).padStart(2, '0');
-    const rows = fs.readFileSync('/home/ni/life/chat-archive.jsonl', 'utf8').trim().split('\n')
+    const rows = fs.readFileSync('/var/lib/digitallife/chat-archive.jsonl', 'utf8').trim().split('\n')
       .map((l) => { try { return JSON.parse(l); } catch { return null; } })
       .filter((r) => r && r.at && r.dir)
       .filter((r) => {
@@ -426,7 +426,7 @@ function pendingMemoryFixup(extra) {
     const flags = st.pendingMemoryFixup;
     delete st.pendingMemoryFixup;
     fs.writeFileSync(STATE_FILE, JSON.stringify(st, null, 2));
-    const lines = fs.readFileSync('/home/ni/life/memory.md', 'utf8').split('\n')
+    const lines = fs.readFileSync('/var/lib/digitallife/memory.md', 'utf8').split('\n')
       .filter((l) => l.startsWith('- 20') && l.trim().endsWith('…'));
     if (!lines.length) return extra;
     const dates = [...new Set(lines.map((l) => l.slice(2, 12)))];
@@ -435,7 +435,7 @@ function pendingMemoryFixup(extra) {
       + lines.map((l) => '· ' + l.slice(2)).join('\n');
     for (const d of dates.slice(0, 3)) {
       try {
-        const j = fs.readFileSync(`/home/ni/life/journal/${d}.md`, 'utf8').trim().slice(0, 900);
+        const j = fs.readFileSync(`/var/lib/digitallife/journal/${d}.md`, 'utf8').trim().slice(0, 900);
         block += `\n\n（${d} 你的日记，原文：\n${j}）`;
       } catch {}
     }
@@ -461,7 +461,7 @@ async function wakeOnce() {
     try {
       const gapHis = minutesSinceHisLast();
       if (gapHis >= 60) {
-        const moodText = (() => { try { return fs.readFileSync('/home/ni/life/mood.md', 'utf8'); } catch { return ''; } })();
+        const moodText = (() => { try { return fs.readFileSync('/var/lib/digitallife/mood.md', 'utf8'); } catch { return ''; } })();
         const mono = await innerMonologue({ moodText, gapMin: gapHis });
         if (mono) wakeExtra += `\n\n【心里的声音，别人听不到】${mono}`;
       }

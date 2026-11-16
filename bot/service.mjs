@@ -51,7 +51,7 @@ function pushHistory(e) {
   try { assertLifeDir(); } catch (err) { log('拒绝写历史：' + err.message); return; }
   // 永久归档：只追加，不随 300 条上限滚掉
   try {
-    const arc = process.env.LIFE_DIR || '/home/ni/life';
+    const arc = process.env.LIFE_DIR || '/var/lib/digitallife';
     fs.appendFileSync(arc + '/chat-archive.jsonl', JSON.stringify(e) + '\n');
   } catch {}
   const s = loadState();
@@ -616,7 +616,7 @@ async function generateReplyInner(historyLines, userText, imagePath = null, chan
     let j = '';
     for (const day of ds) {
       try {
-        const t = fs.readFileSync((process.env.LIFE_DIR || '/home/ni/life') + '/journal/' + day + '.md', 'utf8').trim();
+        const t = fs.readFileSync((process.env.LIFE_DIR || '/var/lib/digitallife') + '/journal/' + day + '.md', 'utf8').trim();
         if (t) j += `\n\n【${day} 你写的日记】\n${t.slice(-700)}`;
       } catch {}
     }
@@ -628,7 +628,7 @@ async function generateReplyInner(historyLines, userText, imagePath = null, chan
 function conflictHint(historyText, hisText) {
   try {
     const group = (t) => {
-      if (/周[一二三四五六日天]|周末|这周|下周|周末/.test(t)) return 'week';
+      if (/周[一二三四五六日天末]|这周|下周|上周|本周/.test(t)) return 'week';
       if (/明天|后天|今天|今晚|明晚/.test(t)) return 'day';
       if (/月底|月初|下个月|这个月/.test(t)) return 'month';
       return '';
@@ -638,7 +638,8 @@ function conflictHint(historyText, hisText) {
     if (!NEG.test(hisText)) return '';
     const g = group(hisText);
     if (!g) return '';
-    const mem = fs.readFileSync((process.env.LIFE_DIR || '/home/ni/life') + '/memory.md', 'utf8').split('\n');
+    const lifeDir = process.env.LIFE_DIR || path.join(process.env.HOME || '.', 'life');
+    const mem = fs.readFileSync(path.join(lifeDir, 'memory.md'), 'utf8').split('\n');
     const hits = mem.filter((l) => l.startsWith('- ') && PLEDGE.test(l) && group(l) === g);
     if (!hits.length) return '';
     const m = hits.slice(-1)[0].replace(/\s*\[src:[^\]]+\]/g, '').replace(/\s*\[h\d+\]/g, '').slice(0, 90);
@@ -701,7 +702,7 @@ function conflictHint(historyText, hisText) {
 
 function pickMeme(cat) {
   try {
-    const dir = `/home/ni/life/shelf/memes/${cat}`;
+    const dir = `/var/lib/digitallife/shelf/memes/${cat}`;
     const files = fs.readdirSync(dir).filter((f) => /\.(png|jpg|jpeg|gif)$/i.test(f));
     if (!files.length) return null;
     return `${dir}/${files[Math.floor(Math.random() * files.length)]}`;
@@ -856,7 +857,7 @@ async function handleMessage(ev) {
   try {
     const pr = state.pendingRecall;
     if (pr) {
-      const rows = fs.readFileSync((process.env.LIFE_DIR || '/home/ni/life') + '/chat-archive.jsonl', 'utf8')
+      const rows = fs.readFileSync((process.env.LIFE_DIR || '/var/lib/digitallife') + '/chat-archive.jsonl', 'utf8')
         .split('\n').filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
       let pick = rows;
       if (pr.since) {
@@ -882,7 +883,7 @@ async function handleMessage(ev) {
       try {
         const since = String(pr.since || '').trim();
         if (/^\d{4}-\d{2}-\d{2}$/.test(since)) {
-          const jf = (process.env.LIFE_DIR || '/home/ni/life') + '/journal/' + since + '.md';
+          const jf = (process.env.LIFE_DIR || '/var/lib/digitallife') + '/journal/' + since + '.md';
           if (fs.existsSync(jf)) {
             const full = fs.readFileSync(jf, 'utf8').trim();
             // 她要看某一天的日记：默认给全文（一天一般 1-3 千字），太长就分段，剩下的记在 state 里等她接着翻
@@ -902,7 +903,7 @@ async function handleMessage(ev) {
         try {
           const rest = state.pendingJournalRest;
           if (rest && rest.date && rest.offset) {
-            const jf2 = (process.env.LIFE_DIR || '/home/ni/life') + '/journal/' + rest.date + '.md';
+            const jf2 = (process.env.LIFE_DIR || '/var/lib/digitallife') + '/journal/' + rest.date + '.md';
             if (fs.existsSync(jf2)) {
               const full2 = fs.readFileSync(jf2, 'utf8').trim();
               const part2 = full2.slice(rest.offset, rest.offset + 6000);
@@ -918,7 +919,7 @@ async function handleMessage(ev) {
           // 先按"重量"找：核心记忆即使字面不匹配也会浮上来（人也是先想起重要的事）
           try {
             const { rankMemory, rerank } = await import('../src/core/salience.mjs');
-            const memRaw = fs.readFileSync((process.env.LIFE_DIR || '/home/ni/life') + '/memory.md', 'utf8');
+            const memRaw = fs.readFileSync((process.env.LIFE_DIR || '/var/lib/digitallife') + '/memory.md', 'utf8');
             const { core } = rankMemory(memRaw.split('\n'));
             const grams = (x) => {
               const c = String(x).replace(/[\s，。！？、,.!?]/g, '');
@@ -947,7 +948,7 @@ async function handleMessage(ev) {
               lines += '\n\n（我脑子里先冒出来的、最重的几件事：\n' + lines2.join('\n') + '）';
             }
           } catch (e) { log('按重量想出错: ' + e.message); }
-          const dir = (process.env.LIFE_DIR || '/home/ni/life') + '/journal';
+          const dir = (process.env.LIFE_DIR || '/var/lib/digitallife') + '/journal';
           const hits = [];
           for (const f of fs.readdirSync(dir).sort().slice(-30)) {
             if (!f.endsWith('.md')) continue;
@@ -965,7 +966,7 @@ async function handleMessage(ev) {
       try {
         const q = String(pr.q || '').trim();
         if (q.length >= 2) {
-          const fa = fs.readFileSync((process.env.LIFE_DIR || '/home/ni/life') + '/framework-archive.md', 'utf8');
+          const fa = fs.readFileSync((process.env.LIFE_DIR || '/var/lib/digitallife') + '/framework-archive.md', 'utf8');
           const hits = fa.split('\n').filter((l) => l.includes(q)).slice(-6);
           if (hits.length) lines += '\n\n（改过什么的记录里，提到这个词的：\n' + hits.map((h) => '- ' + h.replace(/^[-#\s]+/, '').slice(0, 160)).join('\n') + '）';
         }
@@ -1065,7 +1066,7 @@ async function handleMessage(ev) {
   try {
     const askId = result0?.goal?.ask;
     if (askId) {
-      const gt = fs.readFileSync('/home/ni/life/goals.md', 'utf8');
+      const gt = fs.readFileSync('/var/lib/digitallife/goals.md', 'utf8');
       const line = gt.split('\n').find((l) => l.includes(`[${askId}]`)) || '';
       const key = (line.match(/\]\s*([^｜]{2,30})/) || [])[1] || '';
       const kw = key.replace(/[搞明白想为什么的\s]/g, '').slice(0, 4);
@@ -1097,7 +1098,7 @@ async function handleMessage(ev) {
         emit('reply', 'reach', '她自己决定破例说了一句（不在活跃时段）：' + reach);
         try {
           const fs2 = await import('node:fs');
-          fs2.appendFileSync('/home/ni/life/others-edits.md',
+          fs2.appendFileSync('/var/lib/digitallife/others-edits.md',
             `| ${new Date().toLocaleString('zh-CN', { hour12: false }).slice(0, 16)} | 她破例说了一句：${reach.slice(0, 20)} | 她自己的决定 | 过了活跃时段，她自己选的 |\n`);
         } catch {}
         log('破例发出：' + reach);

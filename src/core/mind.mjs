@@ -11,7 +11,7 @@ import { popular as biliPopular, feed as biliFeed, search as biliSearch, format 
 import { emit } from '../utils/events.mjs';
 import { trace as traceCall } from '../utils/trace.mjs';
 
-const LIFE = process.env.LIFE_DIR || '/home/ni/life';
+const LIFE = process.env.LIFE_DIR || '/var/lib/digitallife';
 import { assertLifeDir } from '../utils/lifedir.mjs';
 const cfg = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/config.json', 'utf8'));
 let MEME_CATS = {};
@@ -165,7 +165,7 @@ function baseMessages(extra) {
   ];
 }
 
-const MEME_DIR = '/home/ni/life/shelf/memes';
+const MEME_DIR = '/var/lib/digitallife/shelf/memes';
 function memeOk(cat) {
   return Object.prototype.hasOwnProperty.call(MEME_CATS, cat);
 }
@@ -704,7 +704,7 @@ function applyRules(r) {
   return changed.join('、');
 }
 
-const GOALS = '/home/ni/life/goals.md';
+const GOALS = '/var/lib/digitallife/goals.md';
 
 function readGoals() {
   let txt = '';
@@ -816,7 +816,7 @@ function applyGoal(goal) {
 }
 
 function readTasteFile() {
-  const fp = '/home/ni/life/taste.md';
+  const fp = '/var/lib/digitallife/taste.md';
   let txt = '';
   try { txt = fs.readFileSync(fp, 'utf8'); } catch { txt = '# 我的口味\n\n## 我喜欢\n\n## 我不喜欢\n\n## 最近在意的\n'; }
   const grab = (name) => {
@@ -1097,7 +1097,7 @@ export function applyActions(result, opts = {}) {
   } catch {}
   try {
     if (result.wish && typeof result.wish === 'object' && (result.wish.done || result.wish.drop)) {
-      const fp = '/home/ni/life/wishes.md';
+      const fp = '/var/lib/digitallife/wishes.md';
       let t = fs.readFileSync(fp, 'utf8');
       const id = (result.wish.done || result.wish.drop).replace(/[^w\d]/g, '');
       const note = result.wish.note || '';
@@ -1113,7 +1113,7 @@ export function applyActions(result, opts = {}) {
       }
     }
     if (typeof result.wish === 'string' && result.wish) {
-      const fp = '/home/ni/life/wishes.md';
+      const fp = '/var/lib/digitallife/wishes.md';
       let t = '';
       try { t = fs.readFileSync(fp, 'utf8'); } catch {}
       const ids = [...t.matchAll(/\| w(\d+) \|/g)].map((m) => Number(m[1]));
@@ -1125,7 +1125,7 @@ export function applyActions(result, opts = {}) {
   } catch {}
   try {
     if (result.frame && (result.frame.add || result.frame.drop)) {
-      const fp = '/home/ni/life/framework.md';
+      const fp = '/var/lib/digitallife/framework.md';
       let t = '';
       try { t = fs.readFileSync(fp, 'utf8'); } catch {}
       if (t.includes('## 我自己想到的')) {
@@ -1171,7 +1171,7 @@ export function applyActions(result, opts = {}) {
 
           // 记进"别人动过我的文件"的账本——容量不是越界，但动了就要记
           try {
-            const lp = '/home/ni/life/others-edits.md';
+            const lp = '/var/lib/digitallife/others-edits.md';
             let t2 = fs.readFileSync(lp, 'utf8');
             t2 = t2.trimEnd() + '\n| ' + nowStamp() + ' | 挤掉一条我自己写的话（上限 8 条） | 容量 | 内容：' + txt.slice(0, 40) + ' |\n';
             // 超过 20 行：老的移到归档，主账本永远完整可查（归档不参与同步）
@@ -1182,7 +1182,7 @@ export function applyActions(result, opts = {}) {
             if (body.length > 20) {
               const move = body.slice(0, body.length - 20);
               archived = move.length;
-              const ap = '/home/ni/life/others-edits-archive.md';
+              const ap = '/var/lib/digitallife/others-edits-archive.md';
               let at = '';
               try { at = fs.readFileSync(ap, 'utf8'); } catch {
                 at = '# 更早的改动记录（归档，不参与同步）\n\n| 时间 | 动了什么 | 类型 | 为什么 |\n|---|---|---|---|\n';

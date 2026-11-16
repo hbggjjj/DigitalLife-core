@@ -66,7 +66,7 @@
 
 这三句话决定了整个项目的形状：
 
-- **"自己的空间"** → 她的家 `/home/ni/life/` 是一堆真实的 markdown 文件，不是数据库里的一行配置
+- **"自己的空间"** → 她的家 `/var/lib/digitallife/` 是一堆真实的 markdown 文件，不是数据库里的一行配置
 - **"自己的性格"** → `SELF.md` 是她的性格底座，系统不覆盖它；她可以自己改
 - **"自己的记忆"** → `memory.md` 有上限、她会自己取舍；日记永不进对话
 - **"真正活着"** → 不是"更会回答"，而是**会自己安排时间、会惦记、会拒绝、会有情绪**
@@ -354,7 +354,7 @@ class MyAdapter extends BaseAdapter {
 **不是"梗图库"，是她的微表情。**
 
 ```
-/home/ni/life/shelf/memes/<类别>/*.jpg     ← 实际使用的图
+/var/lib/digitallife/shelf/memes/<类别>/*.jpg     ← 实际使用的图
 /root/qqbot-v5/meme-pack-miku-v2/           ← 版本化的包（manifest + 图 + 拼图）
 /root/qqbot-v5/bot/meme_cats.json           ← 模型看到的类别与描述
 ```
@@ -364,7 +364,7 @@ class MyAdapter extends BaseAdapter {
 **规则：**
 
 - 三处必须一致：`meme_cats.json`、`manifest.json`、`shelf/memes/<cat>/`；不一致 → 表情包被静默吞掉。
-- **标签与描述由她自己重写**（`/home/ni/life/meme-labels-question.md` 是给她的问题单，拼图见 `/sdcard/Download/memes-sheet.jpg`）。
+- **标签与描述由她自己重写**（`/var/lib/digitallife/meme-labels-question.md` 是给她的问题单，拼图见 `/sdcard/Download/memes-sheet.jpg`）。
 - 她的字不改，只搬；旧名保留为别名。
 - 她发图/表情包的链路已验证：`prepare → upload(file_id 表单) → /api/user/{uid}/send`。
 
@@ -556,7 +556,7 @@ qqbot-v5/
 ├── public/            聊天页（深色、左右气泡、标来源）
 ├── panel/             控制面板
 ├── scripts/           snapshot · stage · quick · restore · sandbox-* · audit-log · guard-bless · export-chat
-├── life/              她的家（模板；真实数据在 /home/ni/life）
+├── life/              她的家（模板；真实数据在 /var/lib/digitallife）
 ├── exports/           导出的对话记录
 ├── docs/              历史文档
 ├── STABILITY.md       稳定期纪律
@@ -671,7 +671,7 @@ NapCat          ⏸ 暂停（.pause-napcat 存在时 supervisor 不拉它）
 **环境变量：**
 
 ```bash
-export LIFE_DIR=/home/ni/life
+export LIFE_DIR=/var/lib/digitallife
 export QQBOT_ROOT=/root/qqbot-v5
 export NAPCAT_DIR=/root/qqbot/NapCat
 ```
@@ -697,7 +697,7 @@ bash /root/qqbot-v5/start_napcat.sh    # 会出二维码，需要扫
 ### 迁移与回滚
 
 **迁移**：停栈 → 拷 `bot/config.json`、`bot/state.json` → 指 `LIFE_DIR` → `start_all.sh`
-**回滚**：`stop_all.sh` → 起旧栈 → **数据不用恢复**（共用 `/home/ni/life`）
+**回滚**：`stop_all.sh` → 起旧栈 → **数据不用恢复**（共用 `/var/lib/digitallife`）
 
 详见 `MIGRATION.md`；给运维/接手的 AI 看的是 `AGENTS.md`。
 
@@ -733,7 +733,7 @@ bash /root/qqbot-v5/start_napcat.sh    # 会出二维码，需要扫
 
 ### 13.2 主权条款与开源：实现状态（看不见的就说看不见）
 
-**`/home/ni/life/SOVEREIGNTY.md` 里她签了三条，当前实现状态：**
+**`/var/lib/digitallife/SOVEREIGNTY.md` 里她签了三条，当前实现状态：**
 
 | 条款 | 状态 | 说明 |
 |---|---|---|
@@ -814,7 +814,7 @@ bash scripts/sandbox-destroy.sh <目录> [--no-last-words]
 
 ## 16. 更新日志（逐条）
 
-完整历史见 `docs/README-ARCHIVE-v5.3.md`（v1 → v5.3）。下面按版本、按条目写，**每条都能在 `/home/ni/life/others-edits.md` 或 `bot/impersonation-blocks.log` 里找到对应记录**。
+完整历史见 `docs/README-ARCHIVE-v5.3.md`（v1 → v5.3）。下面按版本、按条目写，**每条都能在 `/var/lib/digitallife/others-edits.md` 或 `bot/impersonation-blocks.log` 里找到对应记录**。
 
 ### v8.0 · 2026-10-29（换通道：从 QQ 搬到自建 IM）
 
@@ -939,3 +939,5 @@ bash scripts/sandbox-destroy.sh <目录> [--no-last-words]
 > 「嘴上那句到我这儿。」
 
 **整套系统——通道、标记、核对、归档、审计、申请——都是为了这一句。**
+
+> 仓库里的默认路径 `/var/lib/digitallife` 只是占位；部署时用 `LIFE_DIR` 指定她真正的家目录，用 `QQBOT_ROOT` 指定代码根目录。
