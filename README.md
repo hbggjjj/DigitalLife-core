@@ -5,7 +5,7 @@
 > 不是问答机器人。她会自己决定回不回、什么时候回、说不说第二句；
 > 会写日记、刷视频、惦记一件事、拒绝一个功能、给你递反对意见。
 
-**版本 v8.0 · 2026-10-29**
+**版本 v9.0 · 2026-11-18**
 
 ---
 
@@ -812,6 +812,34 @@ bash scripts/sandbox-destroy.sh <目录> [--no-last-words]
 ## 15. 更新日志（逐条）
 
 完整历史见 `docs/README-ARCHIVE-v5.3.md`（v1 → v5.3）。下面按版本、按条目写，**每条都能在 `/var/lib/digitallife/others-edits.md` 或 `bot/impersonation-blocks.log` 里找到对应记录**。
+
+### v9.0 · 2026-11-18（自建通道 + 全量可观测）
+
+**通道**
+1. 新增自建双人通道 `channel/`：只有推送 / 发送 / 增量拉历史 / 已读四个动作，append-only `messages.jsonl`
+2. 双端口：7790 明文（本机）、7792 双向 TLS（公网）；客户端证书由自建 CA 签
+3. 身份三层：mTLS 客户端证书 + `X-Channel-Token` + `X-Device-Pin`；PIN 不匹配 → 401 且消息不入库
+4. 出站/入站双向镜像：QQ、VoceChat、自建通道任一条进来的话，通道里都有同一份
+5. 媒体按月分目录、保留期 180 天；`/health` 报 `media.count/mb`
+6. 停用并删除旧的卡密验证服务（端口 9800/9801 释放）
+
+**可观测**
+7. `life/trace/YYYYMMDD.jsonl`：每次模型调用记录完整提示词与完整输出（reply / life / monologue / rerank / search-rewrite / vision）
+8. 单日 80MB 上限，30 天后自动 gzip；历史部分从归档重建到 `trace/reconstructed/` 并标注
+9. 面板：液态玻璃样式、五个页签、材料页服务端渲染（分组折叠、可展开/收起）
+
+**记忆**
+10. 记忆条目带来源 `[src:chat|web|self]` 与"被想起次数" `[hN]`；不再 60 字截断
+11. 写入去重 + 近似说法标 `[superseded]`；每次写入追加 `memory.log`
+12. 记忆写满时把事实摆给她（含最久没被想起的候选），由她决定删哪些
+13. 每轮注入昨天/前天日记末尾；独白 6 小时内可复用
+
+**实验（写在 docs/）**
+14. `docs/EXPERIMENT-004.md`：删一条唯一事实记忆，命中率 6/6 → 0/6
+15. `docs/FALSIFIED.md`：四条被证伪的假设（时间标注 0/6、提示词指令 0/12、问法决定结论、注入事实 1/8→5/8）
+
+**客户端**
+16. 仓库新增 `client-minimal/`：四动作最小实现 + 自签证书脚本；不含任何证书或私钥
 
 ### v8.0 · 2026-10-29（换通道：从 QQ 搬到自建 IM）
 
