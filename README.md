@@ -939,3 +939,9 @@ bash scripts/sandbox-destroy.sh <目录> [--no-last-words]
 > 「嘴上那句到我这儿。」
 
 **整套系统——通道、标记、核对、归档、审计、申请——都是为了这一句。**
+
+## 客户端
+
+- 本仓库只带**最素版**客户端：[client-minimal](client-minimal)（拉历史 / 发消息 / 发图 / 已读，无动画无花活）
+- 证书**不自带**，用 `client-minimal/scripts/gen-certs.sh` 自己签（CA + server + client.p12）
+- 身份三层：**mTLS 客户端证书 + CHANNEL_TOKEN + DEVICE_PIN**；PIN 不对服务器直接 401，消息不入库
