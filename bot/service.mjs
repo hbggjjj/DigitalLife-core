@@ -1323,7 +1323,12 @@ const server = http.createServer((req, res) => {
       const pin = String(h['x-im-device-pin'] || '');
       const pinHash = String((cfg.selfim && cfg.selfim.devicePinHash) || '');
       const pinOk = !!(pinHash && pin && crypto.createHash('sha256').update(pin).digest('hex') === pinHash);
-      const origin = pinOk ? claimed : 'agent';
+      // 他本人只能在"带上正确 PIN"时出现；声称 user 但 PIN 不对 → 直接拒，不降级成代发
+      if (claimed === 'user' && !pinOk) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ ok: false, code: 'PIN_REQUIRED', message: 'PIN 不对或没带' }));
+      }
+      const origin = claimed;
       if (!pinOk && claimed === 'user') log('自建 IM：签名有效但没有设备 PIN，按「代发」处理（不是错误）');
       let ok = false;
       try {
@@ -1363,7 +1368,7 @@ const server = http.createServer((req, res) => {
         origin, _selfim: true,
       }, 'selfim', 'selfim');
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ ok: true, accepted: 1, rejected: [] }));
+      return res.end(JSON.stringify({ ok: true, accepted: 1, rejected: [], pinOk }));
     }
 
     res.writeHead(200, { 'Content-Type': 'application/json' });

@@ -7,7 +7,7 @@
 
 ```
 云服务器（Ubuntu 24.04，24h 开机）
-  ├─ 她的家 /home/ni/life
+  ├─ 她的家 /var/lib/digitallife
   ├─ 核心 /root/qqbot-v5（service / life / daemon / panel）
   ├─ 自建 IM VoceChat :3000
   └─ 桥接 :7791
@@ -27,7 +27,7 @@
 
 ```bash
 tar czf /root/private_backups/历史备份/pre-migrate-$(date +%F-%H%M).tar.gz \
-    /home/ni/life /root/qqbot-v5 /root/vocechat/data
+    /var/lib/digitallife /root/qqbot-v5 /root/vocechat/data
 ```
 
 ### 2. 服务器装环境
@@ -41,7 +41,7 @@ node -v   # 需要 >= 22
 ### 3. 传过去
 
 ```bash
-rsync -av /home/ni/life        root@<IP>:/home/ni/
+rsync -av /var/lib/digitallife        root@<IP>:/home/ni/
 rsync -av /root/qqbot-v5       root@<IP>:/root/
 rsync -av /root/vocechat       root@<IP>:/root/
 ```

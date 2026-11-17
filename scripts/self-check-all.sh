@@ -52,7 +52,7 @@ H=$(curl -s --max-time 5 http://127.0.0.1:7791/api/v1/health)
 echo "$H" | grep -q '"online":true' && say "自建 IM" "OK" || { say "自建 IM" "FAIL（$H）"; FAIL=1; }
 
 # 6) 认知同步
-if LIFE_DIR=/home/ni/life node src/utils/sync-framework.mjs --check >/dev/null 2>&1; then say "认知同步" "OK"; else say "认知同步" "FAIL"; FAIL=1; fi
+if LIFE_DIR=/var/lib/digitallife node src/utils/sync-framework.mjs --check >/dev/null 2>&1; then say "认知同步" "OK"; else say "认知同步" "FAIL"; FAIL=1; fi
 
 # 7) 待补发
 Q=$(wc -l < bot/retry_queue.jsonl 2>/dev/null || echo 0)

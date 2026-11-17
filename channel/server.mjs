@@ -6,6 +6,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import https from 'node:https';
 
 const ROOT = process.env.QQBOT_ROOT || process.cwd();
 const DATA = process.env.CHANNEL_DATA || '/var/lib/digitallife-channel';
@@ -76,7 +77,7 @@ function writeRead(v) {
 function sign(msgId, senderId, origin, ts) {
   return crypto.createHmac('sha256', SECRET).update([msgId, senderId, origin, ts].join('\n')).digest('hex');
 }
-async function forward(text, origin = 'user', images = []) {
+async function forward(text, origin = 'user', images = [], clientPin = '') {
   const msgId = 'c' + seq;
   const ts = Date.now();
   const headers = {
@@ -84,13 +85,16 @@ async function forward(text, origin = 'user', images = []) {
     'X-IM-Signature': 'hmac-sha256=' + sign(msgId, 'user-1', origin, ts),
     'X-IM-Timestamp': String(ts),
   };
-  if (origin === 'user' && DEVICE_PIN) headers['X-IM-Device-Pin'] = DEVICE_PIN;
+  const pin = String(clientPin || '').trim();
+  if (origin === 'user' && pin) headers['X-IM-Device-Pin'] = pin;
   const r = await fetch(`${SERVICE}/inbound`, {
     method: 'POST', headers,
     body: JSON.stringify({ msgId, senderId: 'user-1', origin, text, ts, images: images.map((x) => ({ path: x.path })) }),
     signal: AbortSignal.timeout(15000),
   });
-  return r.ok;
+  let pinOk = false;
+  try { const d = await r.json(); pinOk = !!d.pinOk; } catch {}
+  return { ok: r.ok, pinOk, status: r.status };
 }
 
 // —— 下行：bot 调这个把她的话推进来
@@ -119,7 +123,7 @@ function json(res, obj, code = 200) {
   res.end(JSON.stringify(obj));
 }
 
-const server = http.createServer(async (req, res) => {
+async function handle(req, res) {
  try {
   const u = new URL(req.url, 'http://x');
   const p = u.pathname;
@@ -209,11 +213,20 @@ const server = http.createServer(async (req, res) => {
       };
       const images = (Array.isArray(d.images) ? d.images : []).map(norm).filter(Boolean);
       if (!text && !images.length) return json(res, { ok: false, message: '空消息' }, 400);
+      let accepted = false, asUser = false;
+      const clientPin = String(req.headers['x-device-pin'] || '');
+      if (clientPin) lastClientAt = Date.now();
+      let code = 0;
+      try {
+        const r = await forward(text, 'user', images, clientPin);
+        accepted = !!r.ok; asUser = !!r.pinOk; code = r.status || 0;
+      } catch {}
+      if (!asUser) {
+        return json(res, { ok: false, code: 'PIN_REQUIRED', message: 'PIN 不对：这条没有发出去' }, 401);
+      }
       const item = append({ dir: 'in', text, images });
       broadcast(item);
-      let accepted = false;
-      try { accepted = await forward(text, 'user', images); } catch {}
-      return json(res, { ok: true, id: item.id, accepted });
+      return json(res, { ok: true, id: item.id, accepted, asUser: true });
     });
     return;
   }
@@ -315,7 +328,9 @@ const server = http.createServer(async (req, res) => {
 } catch (e) {
     try { if (!res.headersSent) { res.writeHead(500, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: false, message: String(e && e.message || e) })); } } catch {}
   }
-});
+}
+
+const server = http.createServer(handle);
 
 const WEB = `<!doctype html><html lang="zh"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -347,5 +362,22 @@ hist();events();
 </script></body></html>`;
 
 server.listen(PORT, HOST, () => {
-  console.log(`双人通道已启动: http://${HOST}:${PORT}  数据: ${DATA}  消息数: ${cache.length}`);
+  console.log(`双人通道（本机/内网）: http://${HOST}:${PORT}  数据: ${DATA}  消息数: ${cache.length}`);
 });
+
+// 跑出 Tailscale 的那条路：TLS + 客户端证书固定（自签，不依赖公共 CA）
+const TLS_PORT = Number(process.env.CHANNEL_TLS_PORT || 7792);
+const CERT = process.env.CHANNEL_TLS_CERT || '';
+const KEY = process.env.CHANNEL_TLS_KEY || '';
+if (CERT && KEY && fs.existsSync(CERT) && fs.existsSync(KEY)) {
+  const CA = process.env.CHANNEL_TLS_CA || '';
+  const needClientCert = CA && fs.existsSync(CA);
+  https.createServer({
+    cert: fs.readFileSync(CERT),
+    key: fs.readFileSync(KEY),
+    // 双向认证：没带客户端证书、或不是这张 CA 签的，TLS 握手阶段就断
+    ...(needClientCert ? { ca: fs.readFileSync(CA), requestCert: true, rejectUnauthorized: true } : {}),
+  }, handle)
+    .listen(TLS_PORT, HOST, () => console.log(
+      `双人通道（公网 TLS）: https://${HOST}:${TLS_PORT}  客户端证书: ${needClientCert ? '必须' : '不要求'}`));
+}
