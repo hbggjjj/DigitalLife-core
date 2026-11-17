@@ -170,7 +170,9 @@ details.card>summary::after{content:"＋";color:var(--muted);font-size:15px;tran
 details.card[open]>summary::after{content:"－"}
 details.card>.body{padding:0 14px 14px}
 
-.row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 0}
+.row{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:4px 0;flex-wrap:wrap}
+.row .k{flex:0 0 auto}
+.row .v{flex:1 1 60%;min-width:0;text-align:right;word-break:break-word;overflow-wrap:anywhere}
 .k{color:var(--muted);font-size:13px}
 .v{font-variant-numeric:tabular-nums;font-size:13px}
 .dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px}
@@ -666,7 +668,10 @@ function renderLifetime(l){
   var e1=$('lifetime'), e2=$('uptime');
   if(e1){
     var acc = (l.accumMs || 0);
-    if(acc > 0) e1.textContent = fmtDur(acc) + '（累计存在时长，长间隔也计入；第一句话在 ' + (l.born ? new Date(l.born).toLocaleString('zh-CN',{hour12:false}).slice(0,10) : '—') + '）';
+    if(acc > 0) {
+      e1.textContent = fmtDur(acc);
+      e1.title = '累计存在时长（长间隔也计入）；第一句话在 ' + (l.born ? new Date(l.born).toLocaleString('zh-CN',{hour12:false}).slice(0,10) : '—');
+    }
     else e1.textContent = fmtDur(l.now - l.uptimeFrom);
   }
   if(e2) e2.textContent = fmtDur(l.now - l.uptimeFrom);
