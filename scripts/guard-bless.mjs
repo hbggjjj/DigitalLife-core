@@ -4,8 +4,8 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import path from 'node:path';
 
-const { snapshot } = await import('/root/qqbot-v5/src/utils/guard.mjs');
-const ALLOW = '/root/qqbot-v5/.guard-allow.json';
+const { snapshot } = await import('/srv/digitallife/src/utils/guard.mjs');
+const ALLOW = '/srv/digitallife/.guard-allow.json';
 
 const snap = snapshot();
 let cur = {};

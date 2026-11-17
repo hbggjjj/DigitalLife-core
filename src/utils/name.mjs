@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 export function instanceName() {
-  const root = process.env.QQBOT_ROOT || '/root/qqbot-v5';
+  const root = process.env.QQBOT_ROOT || '/srv/digitallife';
   try {
     const cfg = JSON.parse(fs.readFileSync(path.join(root, 'bot', 'config.json'), 'utf8'));
     if (cfg && cfg.instanceName) return String(cfg.instanceName).trim();

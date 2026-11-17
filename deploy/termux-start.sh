@@ -1,7 +1,7 @@
 #!/bin/bash
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # 安卓/Termux 或任何没有 systemd 的机器：起服务 + 看门狗（每分钟检查，掉了就拉起）
-APP=/root/qqbot-v5
+APP=/srv/digitallife
 export TZ=Asia/Shanghai LIFE_DIR=__MIKU_HOME__/life QQBOT_ROOT=$APP
 mkdir -p "$APP/logs"
 
@@ -11,7 +11,7 @@ start_if(){ local pat="$1" dir="$2" cmd="$3" name="$4"
 }
 vc(){ curl -s -o /dev/null -m 2 http://127.0.0.1:3000/; }
 
-[ -x /root/vocechat/vocechat-server ] && ! vc && ( cd /root/vocechat && setsid nohup ./vocechat-server >> /tmp/vc.log 2>&1 < /dev/null & )
+[ -x /srv/vocechat/vocechat-server ] && ! vc && ( cd /srv/vocechat && setsid nohup ./vocechat-server >> /tmp/vc.log 2>&1 < /dev/null & )
 sleep 3
 start_if "node service.mjs" bot "service.mjs" core
 start_if "node life.mjs" src/core "life.mjs" life

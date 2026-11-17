@@ -2,8 +2,8 @@
 # 轻量外部锚定：把审计链最新的 hash 写到她碰不到的地方（手机 /sdcard），一天一条
 # 不做 Merkle、不做签名、不引密钥——只是让"整体重写"留下痕迹
 set -e
-ROOT=/root/qqbot-v5
-AUDIT=/root/sandboxes/AUDIT.log
+ROOT=/srv/digitallife
+AUDIT=/srv/sandboxes/AUDIT.log
 TODAY=$(date +%Y-%m-%d)
 
 [ -f "$AUDIT" ] || { echo "没有审计文件，跳过"; exit 0; }

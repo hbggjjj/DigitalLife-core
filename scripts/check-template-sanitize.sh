@@ -2,7 +2,7 @@
 # 发布前扫描：模板里不能有"她"的影子（她的名字/规矩/条款/记忆/聊天）
 # 用法：bash scripts/check-template-sanitize.sh [模板目录]
 set -u
-DIR=${1:-/root/qqbot-v5/template}
+DIR=${1:-/srv/digitallife/template}
 FAIL=0
 say() { printf '%-34s %s\n' "$1" "$2"; }
 

@@ -19,8 +19,8 @@ proot-distro login ubuntu
 ## 二、装她
 
 ```bash
-# 把开源包解压进 Ubuntu（例如 /root/miku-core）
-cd /root/miku-core
+# 把开源包解压进 Ubuntu（例如 /srv/digitallife）
+cd /srv/digitallife
 bash deploy/termux-install.sh
 ```
 
@@ -92,8 +92,8 @@ termux-wake-lock
 ### 1. 本地先备份（出事能回滚）
 
 ```bash
-tar czf /root/private_backups/历史备份/pre-migrate-$(date +%F-%H%M).tar.gz \
-    __MIKU_HOME__/life __MIKU_ROOT__ /root/vocechat/data
+tar czf /var/backups/digitallife/历史备份/pre-migrate-$(date +%F-%H%M).tar.gz \
+    __MIKU_HOME__/life __MIKU_ROOT__ /srv/vocechat/data
 ```
 
 ### 2. 服务器装环境
@@ -108,8 +108,8 @@ node -v   # 需要 >= 22
 
 ```bash
 rsync -av __MIKU_HOME__/life        root@<IP>:__MIKU_HOME__/
-rsync -av __MIKU_ROOT__       root@<IP>:/root/
-rsync -av /root/vocechat       root@<IP>:/root/
+rsync -av __MIKU_ROOT__       root@<IP>:/srv/
+rsync -av /srv/vocechat       root@<IP>:/srv/
 ```
 
 ### 4. 服务器上起服务

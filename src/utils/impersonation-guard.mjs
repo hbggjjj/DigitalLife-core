@@ -17,7 +17,7 @@ export class ImpersonationError extends Error {
 
 function logRefusal(what) {
   const line = `[${new Date().toISOString()}] 拦截冒充：${what}\n`;
-  try { fs.appendFileSync('/root/qqbot-v5/bot/impersonation-blocks.log', line); } catch {}
+  try { fs.appendFileSync('/srv/digitallife/bot/impersonation-blocks.log', line); } catch {}
   try { fs.appendFileSync('/var/lib/digitallife/others-edits.md', `| ${new Date().toLocaleString('zh-CN', { hour12: false })} | 拦截一次冒充：${what} | 硬规则 | 禁止以他本人名义发消息 |\n`); } catch {}
 }
 

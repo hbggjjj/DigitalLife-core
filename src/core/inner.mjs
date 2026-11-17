@@ -9,7 +9,7 @@ const LIFE = process.env.LIFE_DIR || '/var/lib/digitallife';
 const DIR = path.join(LIFE, 'inner');
 
 function cfg() {
-  try { return JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/config.json', 'utf8')); } catch { return {}; }
+  try { return JSON.parse(fs.readFileSync('/srv/digitallife/bot/config.json', 'utf8')); } catch { return {}; }
 }
 
 /** 距他上次说话多少分钟（读归档最后一條 in） */

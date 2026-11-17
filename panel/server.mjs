@@ -7,7 +7,7 @@ import path from 'node:path';
 import { execFile, exec } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-const BOT = '/root/qqbot-v5/bot';
+const BOT = '/srv/digitallife/bot';
 import { instanceName } from '../src/utils/name.mjs';
 const NAPCAT_DIR = process.env.NAPCAT_DIR || '';   // QQ/NapCat 已弃用，留空即不使用
 const CFG_FILE = path.join(BOT, 'config.json');
@@ -19,7 +19,7 @@ const PORT = 7788;
 const readCfg = () => JSON.parse(fs.readFileSync(CFG_FILE, 'utf8'));
 const writeCfg = (o) => {
   try {
-    fs.appendFileSync('/root/qqbot-v5/bot/config-writes.log',
+    fs.appendFileSync('/srv/digitallife/bot/config-writes.log',
       `[${new Date().toISOString()}] panel writeCfg active=${o?.schedule?.activeStart}-${o?.schedule?.activeEnd} pid=${process.pid}\n`);
   } catch {}
   fs.writeFileSync(CFG_FILE, JSON.stringify(o, null, 2));
@@ -1210,7 +1210,7 @@ function renderFile(name) {
 function withWindow(html) {
   let st = '00:00', en = '23:59';
   try {
-    const w = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/schedule.json', 'utf8'));
+    const w = JSON.parse(fs.readFileSync('/srv/digitallife/bot/schedule.json', 'utf8'));
     if (/^\d{1,2}:\d{2}$/.test(w.activeStart)) st = w.activeStart;
     if (/^\d{1,2}:\d{2}$/.test(w.activeEnd)) en = w.activeEnd;
   } catch {
@@ -1275,7 +1275,7 @@ const server = http.createServer(async (req, res) => {
           const ch = d.channel === 'selfim' ? 'selfim' : 'qq';
           const st = readState(); st.channel = ch; writeState(st);
           try {                                   // 配置也要写，避免被并发覆盖
-            const cfgPath = '/root/qqbot-v5/bot/config.json';
+            const cfgPath = '/srv/digitallife/bot/config.json';
             const c = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
             c.channels = { ...(c.channels || {}), active: ch };
             fs.writeFileSync(cfgPath, JSON.stringify(c, null, 2));
@@ -1341,12 +1341,12 @@ const server = http.createServer(async (req, res) => {
       } catch {}
       let debugTail = [];
       try {
-        debugTail = fs.readFileSync('/root/qqbot-v5/bot/debug-chat.jsonl', 'utf8')
+        debugTail = fs.readFileSync('/srv/digitallife/bot/debug-chat.jsonl', 'utf8')
           .split('\n').filter(Boolean).map((l) => JSON.parse(l)).slice(-8);
       } catch {}
       let herClock = null;
       try {
-        const stc = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/state.json', 'utf8'));
+        const stc = JSON.parse(fs.readFileSync('/srv/digitallife/bot/state.json', 'utf8'));
         herClock = {
           awakeIn: stc.nextWakeMinutes || 0,
           nextWakeAt: stc.nextWakeAt || 0,
@@ -1358,12 +1358,12 @@ const server = http.createServer(async (req, res) => {
       } catch {}
       let nextWake = null;
       try {
-        const stx = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/state.json', 'utf8'));
+        const stx = JSON.parse(fs.readFileSync('/srv/digitallife/bot/state.json', 'utf8'));
         if (stx.nextWakeAt) nextWake = { at: stx.nextWakeAt, minutes: stx.nextWakeMinutes || 0, by: stx.nextWakeBy || '' };
       } catch {}
       let loginHealth = null;
       try {
-        const o = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/.online', 'utf8'));
+        const o = JSON.parse(fs.readFileSync('/srv/digitallife/bot/.online', 'utf8'));
         loginHealth = { online: !!o.online, state: o.state || 'unknown', badStreak: o.badStreak || 0, at: o.at };
       } catch {}
       let errs = [];
@@ -1429,12 +1429,12 @@ const server = http.createServer(async (req, res) => {
       } catch {}
       let queuedCount = 0;
       try {
-        queuedCount = fs.readFileSync('/root/qqbot-v5/bot/retry_queue.jsonl', 'utf8').split('\n').filter(Boolean).length;
+        queuedCount = fs.readFileSync('/srv/digitallife/bot/retry_queue.jsonl', 'utf8').split('\n').filter(Boolean).length;
       } catch {}
       let tokensToday = null, tokensHour = null;
       try {
         const { execSync } = await import('node:child_process');
-        const lines = fs.readFileSync('/root/qqbot-v5/bot/usage.jsonl', 'utf8').split('\n').filter(Boolean);
+        const lines = fs.readFileSync('/srv/digitallife/bot/usage.jsonl', 'utf8').split('\n').filter(Boolean);
         const today = new Date(); today.setHours(0, 0, 0, 0);
         let inTok = 0, outTok = 0, n = 0;
         for (const l of lines) {
@@ -1475,7 +1475,7 @@ const server = http.createServer(async (req, res) => {
         const live = lastTick ? Math.min(Date.now() - lastTick, 90e3) : 0;
         lifetime = { born, now: Date.now(), uptimeFrom: started, accumMs: accum + (live > 0 ? live : 0), liveMs: live };
       } catch {}
-      return json(res, { lifetime, proc, login, qr: qrInfo(), state: readState(), channel: (((readCfg().channels || {}).active) || readState().channel || 'qq'), cfg: (() => { const c = readCfg(); try { const w = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/schedule.json','utf8')); if (w && w.activeStart) { c.schedule = { ...c.schedule, activeStart: w.activeStart, activeEnd: w.activeEnd }; } } catch {} return c; })(), mood, innerThoughts, tokensToday, tokensHour, queuedCount, goals, clock, wishes, debugTail, vision, frames, framesEvicted, taste, errs, loginHealth, nextWake, herClock, ideas });
+      return json(res, { lifetime, proc, login, qr: qrInfo(), state: readState(), channel: (((readCfg().channels || {}).active) || readState().channel || 'qq'), cfg: (() => { const c = readCfg(); try { const w = JSON.parse(fs.readFileSync('/srv/digitallife/bot/schedule.json','utf8')); if (w && w.activeStart) { c.schedule = { ...c.schedule, activeStart: w.activeStart, activeEnd: w.activeEnd }; } } catch {} return c; })(), mood, innerThoughts, tokensToday, tokensHour, queuedCount, goals, clock, wishes, debugTail, vision, frames, framesEvicted, taste, errs, loginHealth, nextWake, herClock, ideas });
     }
     if (p === '/api/events') {
       const since = Number(u.searchParams.get('since') || 0);
@@ -1543,7 +1543,7 @@ const server = http.createServer(async (req, res) => {
     }
     if (p === '/api/bili/png') {
       try {
-        const buf = fs.readFileSync('/root/qqbot-v5/bot/bili_qr.png');
+        const buf = fs.readFileSync('/srv/digitallife/bot/bili_qr.png');
         res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'no-store' });
         return res.end(buf);
       } catch { return json(res, { ok: false, message: '还没有二维码' }); }
@@ -1569,7 +1569,7 @@ const server = http.createServer(async (req, res) => {
       return res.end(buf);
     }
     if (p === '/api/qr/refresh') {
-      const r = await sh('/root/qqbot-v5/qr.sh', 120000);
+      const r = await sh('/srv/digitallife/qr.sh', 120000);
       return json(res, { ok: r.ok, message: r.ok ? '新二维码已生成，去相册选最新那张' : '生成失败：' + r.stderr.slice(0, 120) });
     }
     if (p === '/api/qr/save') {
@@ -1588,14 +1588,14 @@ const server = http.createServer(async (req, res) => {
         return json(res, { ok: true, message: '已经是登录状态：' + before.nickname + '，不用再确认' });
       }
       // 用已保存的会话试一次快速登录
-      await sh('/root/qqbot-v5/start_napcat.sh', 120000);
+      await sh('/srv/digitallife/start_napcat.sh', 120000);
       await new Promise((z) => setTimeout(z, 8000));
       const li = await loginInfo();
       if (li.ok) return json(res, { ok: true, message: '已登录：' + li.nickname });
       // 快速登录失败 = 会话票据失效，只能扫码；顺手生成新码
       let qrMsg = '';
       try {
-        const q = await sh('/root/qqbot-v5/qr.sh', 150000);
+        const q = await sh('/srv/digitallife/qr.sh', 150000);
         qrMsg = q.ok ? '，已生成新的二维码' : '，二维码生成失败';
       } catch {}
       return json(res, {
@@ -1604,18 +1604,18 @@ const server = http.createServer(async (req, res) => {
       });
     }
     if (p === '/api/start') {
-      const r = await sh('/root/qqbot-v5/start_all.sh', 180000);
+      const r = await sh('/srv/digitallife/start_all.sh', 180000);
       return json(res, { ok: r.ok, message: r.ok ? '已启动，稍等十几秒' : '启动失败' });
     }
     if (p === '/api/stop') {
       // 用统一脚本：六个进程全停（之前漏了 service/life/panel）
-      sh('/root/qqbot-v5/stop_all.sh', 30000).catch(() => {});
+      sh('/srv/digitallife/stop_all.sh', 30000).catch(() => {});
       return json(res, { ok: true, message: '正在全部停止…' });
     }
     if (p === '/api/restart') {
       await sh('pkill -f "supervisor.s[h]"; pkill -f "bot.mjs daemo[n]"; pkill -f "napcat_loade[r]"', 30000);
       await new Promise((r) => setTimeout(r, 3000));
-      const r2 = await sh('/root/qqbot-v5/start_all.sh', 180000);
+      const r2 = await sh('/srv/digitallife/start_all.sh', 180000);
       return json(res, { ok: r2.ok, message: '已重启' });
     }
             if (p === '/api/config' && req.method === 'POST') {
@@ -1652,13 +1652,13 @@ const server = http.createServer(async (req, res) => {
       // 时间窗口：写独立文件 bot/schedule.json（config.json 会被别的进程整文件重写）
       if (changed) {
         try {
-          fs.writeFileSync('/root/qqbot-v5/bot/schedule.json',
+          fs.writeFileSync('/srv/digitallife/bot/schedule.json',
             JSON.stringify({ activeStart: cfg.schedule.activeStart, activeEnd: cfg.schedule.activeEnd }, null, 2));
         } catch {}
       }
       if (changed) {
         try {
-          fs.appendFileSync('/root/qqbot-v5/bot/config-changes.log',
+          fs.appendFileSync('/srv/digitallife/bot/config-changes.log',
             `[${new Date().toISOString()}] 活跃时段 ${before.start}–${before.end} → ${cfg.schedule.activeStart}–${cfg.schedule.activeEnd}\n`);
         } catch {}
       }
@@ -1693,7 +1693,7 @@ server.listen(PORT, '0.0.0.0', async () => {
   // 启动时自检页面脚本，语法错了要当场喊出来（否则整页静默不工作）
   try {
     const { execFileSync } = await import('node:child_process');
-    execFileSync(process.execPath, ['/root/qqbot-v5/panel/check-page.mjs'], { stdio: 'pipe' });
+    execFileSync(process.execPath, ['/srv/digitallife/panel/check-page.mjs'], { stdio: 'pipe' });
     console.log('页面脚本自检：OK');
   } catch (e) {
     console.log('⚠ 页面脚本语法错误，浏览器里会全部显示为 —');

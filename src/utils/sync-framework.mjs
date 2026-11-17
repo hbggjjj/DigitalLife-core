@@ -2,7 +2,7 @@
 // 触发：service 启动时、以及 README 比 framework.md 新的时候。
 import fs from 'node:fs';
 
-const README = '/root/qqbot-v5/README.md';
+const README = '/srv/digitallife/README.md';
 const TARGET = '/var/lib/digitallife/framework.md';
 
 // 按标题里的关键词找章节——编号怎么变都能找到
@@ -278,7 +278,7 @@ ${herPart || '（我自己补的，系统不会覆盖这一段）'}
       }
     } catch {}
     if (body.length > 2000) {
-      fs.appendFileSync('/root/qqbot-v5/logs/sync-framework.log',
+      fs.appendFileSync('/srv/digitallife/logs/sync-framework.log',
         `[${new Date().toISOString()}] framework.md ${body.length} 字，超过 2000，需要再精简\n`);
     }
     return { changed: true, bytes: body.length };

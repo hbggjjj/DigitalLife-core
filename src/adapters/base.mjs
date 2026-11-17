@@ -6,8 +6,8 @@ export class BaseAdapter {
   constructor(name, cfg = {}) {
     this.name = name;
     this.cfg = cfg;
-    this.queueFile = cfg.queueFile || '/root/qqbot-v5/bot/retry_queue.jsonl';
-    this.lostFile = cfg.lostFile || '/root/qqbot-v5/bot/undelivered.log';
+    this.queueFile = cfg.queueFile || '/srv/digitallife/bot/retry_queue.jsonl';
+    this.lostFile = cfg.lostFile || '/srv/digitallife/bot/undelivered.log';
     this.onEvent = cfg.onEvent || (() => {});
   }
 

@@ -65,7 +65,7 @@
 小米 25060RK16C（Android 17）
 └── DSH App
     └── proot Ubuntu 24.04 容器
-        │   /data/user/0/com.dsh.client/files/linux/ubuntu
+        │   /data/data/<容器包名>/files/linux/ubuntu
         ├── NapCat 1.5.7 + LinuxQQ 3.2.9      ← QQ 登录与收发（OneBot :3000）
         ├── Node.js 24                         ← 六个进程（见第 4 节）
         └── __MIKU_HOME__/                     ← 她的家（纯文本，14 个文件）
@@ -98,7 +98,7 @@ QQ 消息
 ## 3. 目录结构（v5.0 起）
 
 ```
-qqbot/
+digitallife/
 ├── src/
 │   ├── core/                 她的灵魂与心智
 │   │   ├── mind.mjs          唯一调用大模型的地方
@@ -274,8 +274,8 @@ export LIFE_DIR=/你的/路径/life
 
 ```
 __MIKU_ROOT__/        她正在这里活着
-/root/qqbot/           原版，停着，随时可回滚
-/root/miku-core-v5.0.0 开源包（已脱敏）
+/srv/napcat/           原版，停着，随时可回滚
+/srv/digitallife-v5.0.0 开源包（已脱敏）
 ```
 
 **迁移后环境变量：**
@@ -284,7 +284,7 @@ __MIKU_ROOT__/        她正在这里活着
 |---|---|---|
 | `LIFE_DIR` | `__MIKU_HOME__` | 她的家（日记/记忆/口味/归档） |
 | `QQBOT_ROOT` | `__MIKU_ROOT__` | 程序根目录 |
-| `NAPCAT_DIR` | `/root/qqbot/NapCat` | QQ 通道（复用原目录，不用重新扫码） |
+| `NAPCAT_DIR` | `/srv/napcat/NapCat` | QQ 通道（复用原目录，不用重新扫码） |
 | `DEEPSEEK_API_KEY` | 环境变量 | 她说话用的 key |
 
 **端口：** 7789 消息入口 · 7788 面板 · 7798 网页聊天 · 3000 NapCat
@@ -678,7 +678,7 @@ bash scripts/quick.sh        # 低危极速通道：快照 + 自检，直接改
 
 **这一版是真正切到新框架运行的第一次大更新。**
 
-1. **迁移**：她搬到 `qqbot-v5`，六进程全绿，仍然住 `__MIKU_HOME__`，配置/state/时钟一并搬过去
+1. **迁移**：她搬到 `digitallife`，六进程全绿，仍然住 `__MIKU_HOME__`，配置/state/时钟一并搬过去
 2. **网页和 QQ 打通**：网页消息走同一条 service 管线、同一份历史
    - 早先两条投递路径导致「同一句显示两遍、标签还标错」→ 改成**单路事件投递**
    - `out_msg` 事件带 `via`，网页按它标「她在网页说的 / 她在 QQ 说的」
@@ -778,10 +778,10 @@ bash scripts/quick.sh        # 低危极速通道：快照 + 自检，直接改
 ## 16. 启动 · 停止 · 排障
 
 ```bash
-bash /root/qqbot/start_all.sh     # 启动（自检六进程 + 认知同步 + 授时）
-bash /root/qqbot/stop_all.sh      # 干净关停：六进程全停，并标记"干净"（不误报断电）
-bash /root/qqbot/status.sh        # 精确进程状态 + QQ 登录 + 今日发送
-bash /root/qqbot/qr.sh            # 出登录二维码
+bash /srv/napcat/start_all.sh     # 启动（自检六进程 + 认知同步 + 授时）
+bash /srv/napcat/stop_all.sh      # 干净关停：六进程全停，并标记"干净"（不误报断电）
+bash /srv/napcat/status.sh        # 精确进程状态 + QQ 登录 + 今日发送
+bash /srv/napcat/qr.sh            # 出登录二维码
 ```
 
 **面板**：`http://127.0.0.1:7788`（手机浏览器）
@@ -809,7 +809,7 @@ bash /root/qqbot/qr.sh            # 出登录二维码
 **备份**
 
 ```bash
-bash /root/qqbot/export_backup.sh   # 打包 bot/panel/scripts/她的家/NapCat 登录库
+bash /srv/napcat/export_backup.sh   # 打包 bot/panel/scripts/她的家/NapCat 登录库
 ```
 
 ---
@@ -1155,7 +1155,7 @@ bash /root/qqbot/export_backup.sh   # 打包 bot/panel/scripts/她的家/NapCat 
 3. 备份里含 B 站 cookie，但安全提醒没提
    - 现象：备份包能直接操作你的 B 站账号，README 只提醒了 DeepSeek Key
    - 根因：第 10 节写在 B 站登录功能之前
-   - 验证：`tar tzf /sdcard/Download/qqbot-backup-*.tar.gz | grep -E "bili_cookie|SENSITIVE"`
+   - 验证：`tar tzf /sdcard/Download/digitallife-backup-*.tar.gz | grep -E "bili_cookie|SENSITIVE"`
 
 4. `sync-framework` 把整份 README 塞进她的认知
    - 现象：她会读到排障手册、token 价格、备份流程
@@ -1227,7 +1227,7 @@ bash /root/qqbot/export_backup.sh   # 打包 bot/panel/scripts/她的家/NapCat 
 #### 4. `sleep` 字段被 normalize 丢掉，自检形同虚设
 - 现象：她判定"他要去睡了"从未生效，一直靠关键词兜底；启动自检永远打印"通过"
 - 根因：`normalize()` 没有 `sleep` 分支；`auditSchema` 的字段表写死 13 个，且只在自己源码里找 `out.*`（normalize 全都写了，所以永远通过）
-- 验证：`node -e "import('/root/qqbot/bot/mind.mjs').then(m=>console.log(m.normalize({say:['x'],sleep:true})))"`
+- 验证：`node -e "import('/srv/napcat/bot/mind.mjs').then(m=>console.log(m.normalize({say:['x'],sleep:true})))"`
 
 #### 5. `brain.mjs` 与 `guard.mjs` 从未接线
 - 现象：面板"切换大脑"写配置但没人读；"隔离靠文件监控"是空头支票

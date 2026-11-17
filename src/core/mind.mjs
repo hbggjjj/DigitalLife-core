@@ -13,9 +13,9 @@ import { trace as traceCall } from '../utils/trace.mjs';
 
 const LIFE = process.env.LIFE_DIR || '/var/lib/digitallife';
 import { assertLifeDir } from '../utils/lifedir.mjs';
-const cfg = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/config.json', 'utf8'));
+const cfg = JSON.parse(fs.readFileSync('/srv/digitallife/bot/config.json', 'utf8'));
 let MEME_CATS = {};
-try { MEME_CATS = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/meme_cats.json', 'utf8')); } catch {}
+try { MEME_CATS = JSON.parse(fs.readFileSync('/srv/digitallife/bot/meme_cats.json', 'utf8')); } catch {}
 const p2 = (n) => String(n).padStart(2, '0');
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`; };
 const nowStr = () => { const d = new Date(); return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`; };
@@ -43,7 +43,7 @@ async function call(messages, maxTokens = 500, tries = 3, tempOverride = null) {
       const j = JSON.parse(t);
       try {
         if (j.usage) {
-          fs.appendFileSync('/root/qqbot-v5/bot/usage.jsonl', JSON.stringify({
+          fs.appendFileSync('/srv/digitallife/bot/usage.jsonl', JSON.stringify({
             ts: Date.now(), in: j.usage.prompt_tokens || 0, out: j.usage.completion_tokens || 0,
           }) + '\n');
         }
@@ -173,7 +173,7 @@ const warns = [];
 function warnOnce(msg, level = 'normalize') {
   if (warns.includes(msg + level)) return;   // 同样的消息一次运行只记一次，免得刷屏
   warns.push(msg + level);
-  try { fs.appendFileSync('/root/qqbot-v5/bot/normalize.log', `[${new Date().toISOString()}] ${level}: ${msg}\n`); } catch {}
+  try { fs.appendFileSync('/srv/digitallife/bot/normalize.log', `[${new Date().toISOString()}] ${level}: ${msg}\n`); } catch {}
   try { emit('brain', level, msg); } catch {}
 }
 const str = (v) => (typeof v === 'string' && v.trim() ? v.trim() : null);
@@ -920,7 +920,7 @@ export function applyActions(result, opts = {}) {
   // 核对结果：确认记 ok，否认记 no（并且留痕，她自己看得见）
   try {
     if (result && result.verify && (result.verify.ok?.length || result.verify.no?.length)) {
-      const sp = path.join(process.env.QQBOT_ROOT || '/root/qqbot-v5', 'bot', 'state.json');
+      const sp = path.join(process.env.QQBOT_ROOT || '/srv/digitallife', 'bot', 'state.json');
       let st = {};
       try { st = JSON.parse(fs.readFileSync(sp, 'utf8')); } catch { st = {}; }
       const find = (id) => (typeof id === 'string' && id.length >= 2) ? (st.history || []).find((h) => h.id === id) : null;
@@ -949,7 +949,7 @@ export function applyActions(result, opts = {}) {
   try {
     if (result && result.quietMine !== undefined && result.quietMine !== null) {
       const mins = Number(result.quietMine) || 0;
-      const sp = path.join(process.env.QQBOT_ROOT || '/root/qqbot-v5', 'bot', 'state.json');
+      const sp = path.join(process.env.QQBOT_ROOT || '/srv/digitallife', 'bot', 'state.json');
       let st = {};
       try { st = JSON.parse(fs.readFileSync(sp, 'utf8')); } catch { st = {}; }
       if (mins > 0) {
@@ -969,7 +969,7 @@ export function applyActions(result, opts = {}) {
   // 她自己选了投递通道：记进 state，并且留痕（她自己看得见）
   try {
     if (result && (result.channel === 'qq' || result.channel === 'web')) {
-      const sp = path.join(process.env.QQBOT_ROOT || '/root/qqbot-v5', 'bot', 'state.json');
+      const sp = path.join(process.env.QQBOT_ROOT || '/srv/digitallife', 'bot', 'state.json');
       let st = {};
       try { st = JSON.parse(fs.readFileSync(sp, 'utf8')); } catch { st = {}; }
       if (st.channel !== result.channel) {
@@ -986,7 +986,7 @@ export function applyActions(result, opts = {}) {
       // 按字数算（默认 1 万字），不再按条数
       let CAP_CHARS = 10000;
       try {
-        const cfgM = JSON.parse(fs.readFileSync(path.join(process.env.QQBOT_ROOT || '/root/qqbot-v5', 'bot', 'config.json'), 'utf8'));
+        const cfgM = JSON.parse(fs.readFileSync(path.join(process.env.QQBOT_ROOT || '/srv/digitallife', 'bot', 'config.json'), 'utf8'));
         if (Number.isFinite(Number(cfgM.memoryChars))) CAP_CHARS = Math.max(2000, Math.min(40000, Number(cfgM.memoryChars)));
       } catch {}
       let adds = [];

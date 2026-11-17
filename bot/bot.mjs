@@ -79,7 +79,7 @@ function enqueueSelfim(text) {
   try {
     const fsq = fs;   // 顶部已 import fs
     const item = { ts: Date.now(), channel: 'selfim', kind: 'text', payload: { to: (cfg.selfim && cfg.selfim.to) || 'user-1', text }, attempts: 0 };
-    fsq.appendFileSync('/root/qqbot-v5/bot/retry_queue.jsonl', JSON.stringify(item) + '\n');
+    fsq.appendFileSync('/srv/digitallife/bot/retry_queue.jsonl', JSON.stringify(item) + '\n');
     emit('nudge', 'queued', `她攒了一句（自建 IM）：${String(text).slice(0, 40)}`);
   } catch {}
 }
@@ -126,9 +126,9 @@ async function sendWithRetry(action, params, tries = 3) {
   try {
     const fsq = await import('node:fs');
     const item = { ts: Date.now(), channel: 'qq', action, params, attempts: 0 };
-    fsq.appendFileSync('/root/qqbot-v5/bot/retry_queue.jsonl', JSON.stringify(item) + '\n');
-    const lines = fsq.readFileSync('/root/qqbot-v5/bot/retry_queue.jsonl', 'utf8').split('\n').filter(Boolean);
-    if (lines.length > 40) fsq.writeFileSync('/root/qqbot-v5/bot/retry_queue.jsonl', lines.slice(-40).join('\n') + '\n');
+    fsq.appendFileSync('/srv/digitallife/bot/retry_queue.jsonl', JSON.stringify(item) + '\n');
+    const lines = fsq.readFileSync('/srv/digitallife/bot/retry_queue.jsonl', 'utf8').split('\n').filter(Boolean);
+    if (lines.length > 40) fsq.writeFileSync('/srv/digitallife/bot/retry_queue.jsonl', lines.slice(-40).join('\n') + '\n');
     const txt = (params && params.message && params.message[0] && params.message[0].data && params.message[0].data.text) || '';
     emit('nudge', 'queued', `她攒了一句（共 ${Math.min(lines.length, 40)} 条）：${String(txt).slice(0, 40)}`);
   } catch {}

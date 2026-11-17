@@ -127,7 +127,7 @@ export async function detail(bvid) {
   // 没字幕：如果开了云 ASR，就听一小段（只给"说了什么"，不给旋律）
   if (!out.subtitle) {
     try {
-      const cfgAll = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/config.json', 'utf8'));
+      const cfgAll = JSON.parse(fs.readFileSync('/srv/digitallife/bot/config.json', 'utf8'));
       if (cfgAll.asr && cfgAll.asr.enabled) {
         const pu = await api('/x/player/playurl', { bvid, cid: out.cid, fnval: 16 });
         const audioUrl = pu?.dash?.audio?.[0]?.baseUrl || pu?.dash?.audio?.[0]?.base_url;

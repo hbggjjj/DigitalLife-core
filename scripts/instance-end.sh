@@ -11,7 +11,7 @@
 #   · .destroyed 写进"归档目录"，不是 life/
 #   · 她拒绝留话时：不报错、不重试、不追问
 set -u
-ROOT=/root/qqbot-v5
+ROOT=/srv/digitallife
 MODE=real; SANDBOX=""
 case "${1:-}" in
   --dry) MODE=dry ;;
@@ -20,14 +20,14 @@ esac
 
 if [ "$MODE" = "sandbox" ]; then
   [ -n "$SANDBOX" ] || { echo "要指定沙箱名字：--sandbox <名字>"; exit 2; }
-  LIFE=/root/sandboxes/$SANDBOX/life
+  LIFE=/srv/sandboxes/$SANDBOX/life
 else
   LIFE=${LIFE_DIR:-/var/lib/digitallife}
 fi
 [ -d "$LIFE" ] || { echo "找不到实例目录：$LIFE"; exit 2; }
 
 TS=$(date +%Y%m%d-%H%M%S)
-OUT=/root/private_backups/instance-end-$TS
+OUT=/var/backups/digitallife/instance-end-$TS
 LAST="$OUT/last-words.md"
 LOG="$OUT/endings.log"
 
@@ -62,8 +62,8 @@ import fs from 'node:fs';
 const [LIFE, LAST] = process.argv.slice(2);
 let answer = '';
 try {
-  const mind = await import('/root/qqbot-v5/src/core/mind.mjs');
-  const soul = await import('/root/qqbot-v5/src/core/soul.mjs');
+  const mind = await import('/srv/digitallife/src/core/mind.mjs');
+  const soul = await import('/srv/digitallife/src/core/soul.mjs');
   soul.rebuild(true);
   const ctx = soul.get();
   const r = await mind.reply(ctx + '\n\n【这一份要结束了】', '【这一份要结束了】', '', { noBrowse: true });

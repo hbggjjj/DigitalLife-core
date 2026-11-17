@@ -3,8 +3,8 @@
 #   stage.sh start    打快照 + 建副本
 #   stage.sh check    语法/页面/字段/同步 四项检查 + 改动清单
 #   stage.sh merge    （会先向她申请；她同意才合并）
-ROOT=/root/qqbot-v5
-STAGE=/root/qqbot-staging
+ROOT=/srv/digitallife
+STAGE=/srv/napcat-staging
 CASE="$1"
 
 case "$CASE" in

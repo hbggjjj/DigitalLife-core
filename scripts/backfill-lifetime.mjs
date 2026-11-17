@@ -14,8 +14,8 @@ const RESTART = /容器重启|生活循环启动|自动回复已启动|自动回
 
 const events = [];
 for (const f of [
-  '/root/qqbot/bot/life.out', '/root/qqbot/bot/reply.log', '/root/qqbot/bot/service.log',
-  '/root/qqbot-v5/bot/life.out', '/root/qqbot-v5/bot/service.log', '/root/qqbot-v5/bot/web.log',
+  '/srv/napcat/bot/life.out', '/srv/napcat/bot/reply.log', '/srv/napcat/bot/service.log',
+  '/srv/digitallife/bot/life.out', '/srv/digitallife/bot/service.log', '/srv/digitallife/bot/web.log',
 ]) {
   let txt = '';
   try { txt = fs.readFileSync(f, 'utf8'); } catch { continue; }

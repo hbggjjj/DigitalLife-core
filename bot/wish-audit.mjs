@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 
 const LIFE = process.env.LIFE_DIR || '/var/lib/digitallife';
 const WISHES = `${LIFE}/wishes.md`;
-const ROOT = '/root/qqbot';
+const ROOT = '/srv/napcat';
 
 // —— 能自动做的能力模板（白名单）——
 const TEMPLATES = {

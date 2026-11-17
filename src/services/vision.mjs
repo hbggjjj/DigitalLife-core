@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import { trace as traceCall } from '../utils/trace.mjs';
 
-const CFG = '/root/qqbot-v5/bot/config.json';
+const CFG = '/srv/digitallife/bot/config.json';
 
 function cfg() {
   try {
@@ -74,7 +74,7 @@ export async function describe(imagePath, hint = '') {
     traceCall({ kind: 'vision', model: c.model || 'deepseek-chat', messages, raw: j.choices?.[0]?.message?.content || '' });
     try {
       const u = j.usage || {};
-      fs.appendFileSync('/root/qqbot-v5/bot/usage.jsonl', JSON.stringify({
+      fs.appendFileSync('/srv/digitallife/bot/usage.jsonl', JSON.stringify({
         ts: Date.now(), in: u.prompt_tokens || 0, out: u.completion_tokens || 0,
         calls: 1, kind: 'vision',
       }) + '\n');

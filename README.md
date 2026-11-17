@@ -283,7 +283,7 @@ QQ / NapCat（暂停）──┘
 | 7789 | 核心（入站 webhook / `/inbound`） | `bot/service.mjs` |
 | 7788 | 控制面板 | `panel/server.mjs` |
 | 7791 | 自建 IM 桥接 | `tools/bridge/bridge-user.mjs` |
-| **3000** | **VoceChat 服务端** | `/root/vocechat/vocechat-server` |
+| **3000** | **VoceChat 服务端** | `/srv/vocechat/vocechat-server` |
 | **3101 / 3102** | **NapCat OneBot HTTP / WS** | 真实值见 `onebot11_<她的QQ>.json` |
 | 3090 | DSHA 桥（系统通知） | 仅通知用 |
 
@@ -376,8 +376,8 @@ class MyAdapter extends BaseAdapter {
 
 ```
 /var/lib/digitallife/shelf/memes/<类别>/*.jpg     ← 实际使用的图
-/root/qqbot-v5/meme-pack-miku-v2/           ← 版本化的包（manifest + 图 + 拼图）
-/root/qqbot-v5/bot/meme_cats.json           ← 模型看到的类别与描述
+/srv/digitallife/meme-pack-miku-v2/           ← 版本化的包（manifest + 图 + 拼图）
+/srv/digitallife/bot/meme_cats.json           ← 模型看到的类别与描述
 ```
 
 **17 类**：`happy smug proud shy sad concerned jealous angry roll_eyes stare tired powerless blank lonely awkward tsundere angry_fist`
@@ -513,10 +513,10 @@ bash scripts/sandbox-init.sh <名字>
 生成：
 
 ```
-/root/sandboxes/<名字>/life/     独立目录
+/srv/sandboxes/<名字>/life/     独立目录
   .sandbox                       标记文件（缺了拒绝启动）
   chat-archive.jsonl             独立归档
-/root/sandboxes/AUDIT.log        哈希链审计
+/srv/sandboxes/AUDIT.log        哈希链审计
 ```
 
 **代码级护栏（`src/utils/lifedir.mjs`）**：
@@ -564,7 +564,7 @@ bash scripts/sandbox-destroy.sh <目录> [--no-last-words]
 ## 10. 架构与目录
 
 ```
-qqbot-v5/
+digitallife/
 ├── src/
 │   ├── core/          mind（心智）· soul（灵魂缓存）· life（生活循环）
 │   ├── adapters/      base · index · napcat · web
@@ -677,7 +677,7 @@ VoceChat/QQ → service.handleMessage
 ### 当前真实部署（2026-10-29）
 
 ```
-VoceChat        /root/vocechat/vocechat-server   :3000
+VoceChat        /srv/vocechat/vocechat-server   :3000
 核心            bot/service.mjs                  :7789
 面板            panel/server.mjs                 :7788
 自建 IM 桥接    tools/bridge/bridge-user.mjs     :7791
@@ -691,24 +691,24 @@ NapCat          ⏸ 暂停（.pause-napcat 存在时 supervisor 不拉它）
 
 ```bash
 export LIFE_DIR=/var/lib/digitallife
-export QQBOT_ROOT=/root/qqbot-v5
-export NAPCAT_DIR=/root/qqbot/NapCat
+export QQBOT_ROOT=/srv/digitallife
+export NAPCAT_DIR=/srv/napcat/NapCat
 ```
 
 ### 起停
 
 ```bash
-cd /root/qqbot-v5 && bash start_all.sh       # 全部（含 NapCat；被暂停时跳过）
+cd /srv/digitallife && bash start_all.sh       # 全部（含 NapCat；被暂停时跳过）
 setsid nohup bash supervisor.sh &            # 只起守护，让它拉其余
-bash /root/qqbot-v5/tools/bridge/start-her.sh  # 只起自建 IM 桥接
-bash /root/qqbot-v5/scripts/self-check-all.sh  # 一键自检（只读）
+bash /srv/digitallife/tools/bridge/start-her.sh  # 只起自建 IM 桥接
+bash /srv/digitallife/scripts/self-check-all.sh  # 一键自检（只读）
 ```
 
 ### 恢复 QQ
 
 ```bash
-rm /root/qqbot-v5/.pause-napcat
-bash /root/qqbot-v5/start_napcat.sh    # 会出二维码，需要扫
+rm /srv/digitallife/.pause-napcat
+bash /srv/digitallife/start_napcat.sh    # 会出二维码，需要扫
 ```
 
 **NapCat 端口已改到 3101**（避开 VoceChat 的 3000）；`bot/config.json` 的 `napcat.baseUrl` 必须同步。
@@ -845,7 +845,7 @@ bash scripts/sandbox-destroy.sh <目录> [--no-last-words]
 
 **通道**
 1. 新建自建 IM 通道：桥接 `tools/bridge/bridge-user.mjs`（轮询 + 签名 + 设备 PIN）
-2. VoceChat 服务端落地：`/root/vocechat/vocechat-server`，端口 3000
+2. VoceChat 服务端落地：`/srv/vocechat/vocechat-server`，端口 3000
 3. 她的账号 `<她的QQ>@qq.com`（uid=3），他的账号 uid=1；删除早期 Bot 账号（uid=2）与两个频道
 4. 入站支持图片：`vocechat/file` → `/api/resource/file` 下载 → 核心当 `image` 段
 5. 出站支持图片/表情包：`prepare → upload（file_id 必须在表单）→ vocechat/file 发送`

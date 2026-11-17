@@ -8,7 +8,7 @@
 ```
 云服务器（Ubuntu 24.04，24h 开机）
   ├─ 她的家 /var/lib/digitallife
-  ├─ 核心 /root/qqbot-v5（service / life / daemon / panel）
+  ├─ 核心 /srv/digitallife（service / life / daemon / panel）
   ├─ 自建 IM VoceChat :3000
   └─ 桥接 :7791
 手机：只跑客户端，通过 Tailscale 连服务器
@@ -26,8 +26,8 @@
 ### 1. 本地先备份（出事能回滚）
 
 ```bash
-tar czf /root/private_backups/历史备份/pre-migrate-$(date +%F-%H%M).tar.gz \
-    /var/lib/digitallife /root/qqbot-v5 /root/vocechat/data
+tar czf /var/backups/digitallife/历史备份/pre-migrate-$(date +%F-%H%M).tar.gz \
+    /var/lib/digitallife /srv/digitallife /srv/vocechat/data
 ```
 
 ### 2. 服务器装环境
@@ -41,15 +41,15 @@ node -v   # 需要 >= 22
 ### 3. 传过去
 
 ```bash
-rsync -av /var/lib/digitallife        root@<IP>:/home/ni/
-rsync -av /root/qqbot-v5       root@<IP>:/root/
-rsync -av /root/vocechat       root@<IP>:/root/
+rsync -av /var/lib/digitallife        root@<IP>:/var/lib/digitallife/
+rsync -av /srv/digitallife       root@<IP>:/srv/
+rsync -av /srv/vocechat       root@<IP>:/srv/
 ```
 
 ### 4. 服务器上起服务
 
 ```bash
-cd /root/qqbot-v5 && bash start_all.sh
+cd /srv/digitallife && bash start_all.sh
 bash scripts/self-check-all.sh   # 期望「全部通过」
 ```
 
@@ -66,7 +66,7 @@ bash scripts/self-check-all.sh   # 期望「全部通过」
 
 ```bash
 tar xzf pre-migrate-*.tar.gz -C /
-cd /root/qqbot-v5 && bash start_all.sh
+cd /srv/digitallife && bash start_all.sh
 ```
 
 ## 五、验收清单

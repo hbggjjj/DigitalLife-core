@@ -3,8 +3,8 @@
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 
-const FILE = '/root/sandboxes/AUDIT.log';
-fs.mkdirSync('/root/sandboxes', { recursive: true });
+const FILE = '/srv/sandboxes/AUDIT.log';
+fs.mkdirSync('/srv/sandboxes', { recursive: true });
 
 const [event, name, detail] = [process.argv[2] || 'EVENT', process.argv[3] || '-', process.argv[4] || ''];
 

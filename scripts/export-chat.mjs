@@ -5,7 +5,7 @@ import path from 'node:path';
 
 const LIFE = process.env.LIFE_DIR || '/var/lib/digitallife';
 const ARC = path.join(LIFE, 'chat-archive.jsonl');
-const out = process.argv[2] || path.join('/root/qqbot-v5/exports', '对话全档.md');
+const out = process.argv[2] || path.join('/srv/digitallife/exports', '对话全档.md');
 
 let rows = [];
 try {

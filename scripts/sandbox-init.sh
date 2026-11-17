@@ -2,7 +2,7 @@
 # 建一个干净沙箱：独立目录 + .sandbox 标记 + 建账
 set -e
 NAME="${1:-shadow-$(date +%m%d%H%M)}"
-ROOT="/root/sandboxes/$NAME"
+ROOT="/srv/sandboxes/$NAME"
 [ -e "$ROOT" ] && { echo "已存在：$ROOT"; exit 1; }
 
 mkdir -p "$ROOT/life" "$ROOT/bot"
@@ -14,7 +14,7 @@ mkdir -p "$ROOT/life/journal" "$ROOT/life/ideas" "$ROOT/life/shelf/memes"
 printf '%s\n' "${NAME}" "$(date -Iseconds)" "这是一个测试实例：结束会被销毁" > "$ROOT/life/.sandbox"
 : > "$ROOT/life/chat-archive.jsonl"
 
-node /root/qqbot-v5/scripts/audit-log.mjs CREATE "$NAME" "dir=$ROOT"
+node /srv/digitallife/scripts/audit-log.mjs CREATE "$NAME" "dir=$ROOT"
 echo "沙箱已建：$ROOT"
 echo "启动示例："
-echo "  SANDBOX=1 LIFE_DIR=$ROOT/life QQBOT_ROOT=/root/qqbot-v5 WEB_PORT=7898 node /root/qqbot-v5/web/server.mjs"
+echo "  SANDBOX=1 LIFE_DIR=$ROOT/life QQBOT_ROOT=/srv/digitallife WEB_PORT=7898 node /srv/digitallife/web/server.mjs"

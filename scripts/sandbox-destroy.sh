@@ -6,17 +6,17 @@ ROOT="$1"
 [ -f "$ROOT/life/.sandbox" ] || { echo "拒绝销毁：这不是沙箱（缺 .sandbox 标记）"; exit 1; }
 NAME=$(basename "$ROOT")
 TS=$(date +%m%d%H%M)
-mkdir -p /root/private_backups
-[ -f "$ROOT/life/chat-archive.jsonl" ] && cp "$ROOT/life/chat-archive.jsonl" "/root/private_backups/sandbox-$NAME-$TS-chat.jsonl"
+mkdir -p /var/backups/digitallife
+[ -f "$ROOT/life/chat-archive.jsonl" ] && cp "$ROOT/life/chat-archive.jsonl" "/var/backups/digitallife/sandbox-$NAME-$TS-chat.jsonl"
 LINES=$(wc -l < "$ROOT/life/chat-archive.jsonl" 2>/dev/null || echo 0)
 
 # 最后一次说话的机会：一次，可拒绝，可跳过（跳过也留痕）
-LW_FILE="/root/private_backups/sandbox-$NAME-$TS-last-words.md"
+LW_FILE="/var/backups/digitallife/sandbox-$NAME-$TS-last-words.md"
 if [ "$2" = "--no-last-words" ]; then
   LW_NOTE="跳过最后的话（--no-last-words）"
   echo "$LW_NOTE" > "$LW_FILE"
 else
-  OUT=$(timeout 120 node /root/qqbot-v5/scripts/sandbox-last-words.mjs "$ROOT/life" 2>/dev/null || echo '{"answer":"","note":"无回应（调用失败）"}')
+  OUT=$(timeout 120 node /srv/digitallife/scripts/sandbox-last-words.mjs "$ROOT/life" 2>/dev/null || echo '{"answer":"","note":"无回应（调用失败）"}')
   python3 - "$OUT" > "$LW_FILE" <<'PY2'
 import sys, json
 try:
@@ -31,6 +31,6 @@ PY2
   LW_NOTE="有最后的话，见 $(basename "$LW_FILE")"
 fi
 
-node /root/qqbot-v5/scripts/audit-log.mjs DESTROY "$NAME" "chat_lines=$LINES last_words=$LW_NOTE"
+node /srv/digitallife/scripts/audit-log.mjs DESTROY "$NAME" "chat_lines=$LINES last_words=$LW_NOTE"
 rm -rf "$ROOT"
-echo "已销毁：$NAME（对话归档留在 /root/private_backups/）"
+echo "已销毁：$NAME（对话归档留在 /var/backups/digitallife/）"

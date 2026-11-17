@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import { http4 } from '../utils/http4.mjs';
 
-const CFG = '/root/qqbot-v5/bot/config.json';
+const CFG = '/srv/digitallife/bot/config.json';
 
 function pct(s) {
   return encodeURIComponent(String(s))
@@ -68,7 +68,7 @@ export async function ensureToken(cfg, appkey = '') {
     const curCfg = cfgNow;
     try {
       const fsx = await import('node:fs');
-      fsx.appendFileSync('/root/qqbot-v5/bot/config-writes.log',
+      fsx.appendFileSync('/srv/digitallife/bot/config-writes.log',
         `[${new Date().toISOString()}] asr-token write appkey=${appkey || 'default'} pid=${process.pid}\n`);
     } catch {}
     fs.writeFileSync(CFG, JSON.stringify(curCfg, null, 2));

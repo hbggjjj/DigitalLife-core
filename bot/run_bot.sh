@@ -1,3 +1,3 @@
 #!/bin/bash
-cd /root/qqbot-v5/bot
+cd /srv/digitallife/bot
 exec node bot.mjs daemon

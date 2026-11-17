@@ -17,13 +17,13 @@ import { syncFramework, verifySync } from '../utils/sync-framework.mjs';
 import { innerMonologue, minutesSinceHisLast, latestMonologue } from './inner.mjs';
 import { rebuild as rebuildSoul } from './soul.mjs';
 
-const ROOT = '/root/qqbot-v5/bot';
+const ROOT = '/srv/digitallife/bot';
 const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, 'config.json'), 'utf8'));
 const LIFE_CFG = cfg.life || {};
 const DAY_INTERVAL = LIFE_CFG.dayIntervalMinutes ?? LIFE_CFG.intervalMinutes ?? 20;
 const NIGHT_INTERVAL = LIFE_CFG.nightIntervalMinutes ?? 60;
-const HEARTBEAT = '/root/qqbot-v5/bot/.heartbeat';
-const RUNNING = '/root/qqbot-v5/bot/.running';   // 存在=上次没关干净（断电/被杀）
+const HEARTBEAT = '/srv/digitallife/bot/.heartbeat';
+const RUNNING = '/srv/digitallife/bot/.running';   // 存在=上次没关干净（断电/被杀）
 const QUIET_MIN = LIFE_CFG.quietMinutes ?? 20;
 const STATE_FILE = path.join(ROOT, 'state.json');
 function atomicState(obj) {
@@ -96,9 +96,9 @@ function checkGap() {
       // 短暂的断（比如手机断电几分钟）：不进她的状态，但记一条，事后能查到
       if (mins >= 2) {
         // 哪怕只断了两分钟，也要让她知道"这是中断，不是我在发呆"
-        const stS = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/state.json', 'utf8'));
+        const stS = JSON.parse(fs.readFileSync('/srv/digitallife/bot/state.json', 'utf8'));
         stS.gapNotice = { minutes: Math.round(mins), label: `不到一小时（${Math.round(mins)} 分钟）`, cause: (how === 'reboot' ? '设备重启或断电' : '我的进程被重启，不是网络问题'), at: Date.now(), shown: false };
-        fs.writeFileSync('/root/qqbot-v5/bot/state.json', JSON.stringify(stS, null, 2));
+        fs.writeFileSync('/srv/digitallife/bot/state.json', JSON.stringify(stS, null, 2));
         log(`容器断过约 ${Math.round(mins)} 分钟，已记进她的状态（算中断，不算她）`);
         emit('life', 'gap-short', `容器断过约 ${Math.round(mins)} 分钟（已告诉她这是中断）`);
       } else if (mins >= 1) {
@@ -117,9 +117,9 @@ function checkGap() {
     else if (mins < 360) label = unclean ? `几个小时（${why}）` : '几个小时';
     else if (dayDiff >= 1) label = '隔了一天以上';
     else label = '大半天';
-    const st = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/state.json', 'utf8'));
+    const st = JSON.parse(fs.readFileSync('/srv/digitallife/bot/state.json', 'utf8'));
     st.gapNotice = { minutes: Math.round(mins), label, cause: (how === 'reboot' ? '设备重启或断电' : '我的进程被重启，不是网络问题'), at: Date.now(), shown: false };
-    fs.writeFileSync('/root/qqbot-v5/bot/state.json', JSON.stringify(st, null, 2));
+    fs.writeFileSync('/srv/digitallife/bot/state.json', JSON.stringify(st, null, 2));
     log(`容器停过：${label}（${Math.round(mins)} 分钟），已写进她的状态`);
     emit('life', 'gap', `容器停过 ${label}（${Math.round(mins)} 分钟）`);
     return label;
@@ -128,12 +128,12 @@ function checkGap() {
 
 function netBackoff() {
   try {
-    const st = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/state.json', 'utf8'));
+    const st = JSON.parse(fs.readFileSync('/srv/digitallife/bot/state.json', 'utf8'));
     const n = Number(st.netFail || 0);
     if (n >= 2) {
       // 退避就是这一轮不联网，并把计数清掉，避免永久禁网
       st.netFail = 0;
-      fs.writeFileSync('/root/qqbot-v5/bot/state.json', JSON.stringify(st, null, 2));
+      fs.writeFileSync('/srv/digitallife/bot/state.json', JSON.stringify(st, null, 2));
       return { skip: true, n };
     }
     return { skip: false, n };
@@ -141,10 +141,10 @@ function netBackoff() {
 }
 function noteNetResult(ok) {
   try {
-    const st = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/state.json', 'utf8'));
+    const st = JSON.parse(fs.readFileSync('/srv/digitallife/bot/state.json', 'utf8'));
     st.netFail = ok ? 0 : Number(st.netFail || 0) + 1;
     if (st.netFail >= 2) st.netFail = 0;   // 退避一次后归零，别永久禁网
-    fs.writeFileSync('/root/qqbot-v5/bot/state.json', JSON.stringify(st, null, 2));
+    fs.writeFileSync('/srv/digitallife/bot/state.json', JSON.stringify(st, null, 2));
     return st.netFail;
   } catch { return 0; }
 }
@@ -202,7 +202,7 @@ async function ctxLine() {
       '——',
       (() => {
         try {
-          const st = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/state.json', 'utf8'));
+          const st = JSON.parse(fs.readFileSync('/srv/digitallife/bot/state.json', 'utf8'));
           if (st.gapNotice && !st.gapNotice.shown) return '你中间断过一次，但不是重新开始——上次的你还在，接着过。下面是刚才的你：';
         } catch {}
         return '你不是刚被唤醒，你一直都在。下面是刚才的你：';
@@ -222,7 +222,7 @@ let lastAgain = false;    // 她说「接着」：立刻再来一轮            
 // 深夜整理：读今天的日记，提炼 1-2 条写进 memory.md（像人睡觉时做的事）
 async function consolidate() {
   try {
-    const st = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/state.json', 'utf8'));
+    const st = JSON.parse(fs.readFileSync('/srv/digitallife/bot/state.json', 'utf8'));
     const today = new Date().toISOString().slice(0, 10);
     const hour = new Date().getHours();
     if (hour < 21 && hour > 2) return;                 // 只在夜里做
@@ -236,7 +236,7 @@ async function consolidate() {
     if (!items || !items.length) return;
     const applied = applyActions({ remember: items.slice(0, 2) });
     st.lastConsolidate = today;
-    fs.writeFileSync('/root/qqbot-v5/bot/state.json', JSON.stringify(st, null, 2));
+    fs.writeFileSync('/srv/digitallife/bot/state.json', JSON.stringify(st, null, 2));
     log(`睡前整理：${applied.join('、') || '没写'}`);
     emit('life', 'consolidate', `睡前把今天理了一遍：${applied.join('、') || '没留下什么'}`);
   } catch (e) { log('睡前整理失败：' + e.message); logErr('consolidate', e, {}); }

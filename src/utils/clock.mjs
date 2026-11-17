@@ -1,7 +1,7 @@
 // 授时：不让她的时间只依赖手机系统时钟
 import fs from 'node:fs';
 
-const FILE = '/root/qqbot-v5/bot/.clock.json';
+const FILE = '/srv/digitallife/bot/.clock.json';
 const MAX_AGE = 6 * 3600 * 1000;   // 6 小时重新校一次
 
 let lastSystem = 0;    // 上次看到的系统时间
@@ -45,7 +45,7 @@ export async function sync(force = false) {
       if (!Number.isFinite(remote)) continue;
       const diff = remote - local;
       if (Math.abs(diff) > 3600e3) {
-        try { fs.appendFileSync('/root/qqbot-v5/bot/clock.log', `[${new Date().toISOString()}] 时差超过一小时：${Math.round(diff / 1000)}s，已采用\n`); } catch {}
+        try { fs.appendFileSync('/srv/digitallife/bot/clock.log', `[${new Date().toISOString()}] 时差超过一小时：${Math.round(diff / 1000)}s，已采用\n`); } catch {}
       }
       skew = diff;
       at = local;

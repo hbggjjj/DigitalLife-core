@@ -5,22 +5,22 @@ import crypto from 'node:crypto';
 import { emit } from './events.mjs';
 
 const PROTECTED = [
-  '/root/.dsh/.credentials.yaml',
-  '/root/.dsh/.bridge_headers',
-  `${process.env.NAPCAT_DIR || '/root/qqbot/NapCat'}/config/onebot11.json`,
-  `${process.env.NAPCAT_DIR || '/root/qqbot/NapCat'}/config/webui.json`,
-  '/root/qqbot-v5/supervisor.sh',
-  '/root/qqbot-v5/start_all.sh',
+  (process.env.DSHA_DIR || '/var/lib/dsha') + '/.credentials.yaml',
+  (process.env.DSHA_DIR || '/var/lib/dsha') + '/.bridge_headers',
+  `${process.env.NAPCAT_DIR || '/srv/napcat/NapCat'}/config/onebot11.json`,
+  `${process.env.NAPCAT_DIR || '/srv/napcat/NapCat'}/config/webui.json`,
+  '/srv/digitallife/supervisor.sh',
+  '/srv/digitallife/start_all.sh',
 ];
 const VOLATILE = ['state.json', 'events.jsonl', 'usage.jsonl', 'retry_queue.jsonl', '.online', '.heartbeat'];
-const BACKUP = '/root/qqbot-v5/.guard-backup';
+const BACKUP = '/srv/digitallife/.guard-backup';
 // 维护者按流程改过的文件：写下 expected hash，guard 认这个，不认旧内存基线
-const ALLOW = '/root/qqbot-v5/.guard-allow.json';
+const ALLOW = '/srv/digitallife/.guard-allow.json';
 
 function allowedHash(f) {
   try { return JSON.parse(fs.readFileSync(ALLOW, 'utf8'))[f] || null; } catch { return null; }
 }
-const LOG = '/root/qqbot-v5/bot/guard.log';
+const LOG = '/srv/digitallife/bot/guard.log';
 
 function sha(file) {
   try { return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex'); }

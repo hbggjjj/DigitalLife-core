@@ -1,9 +1,9 @@
 #!/bin/bash
-# 抓"开错实例"：检查正在跑的核心进程，工作目录是不是 /root/qqbot-v5。
-# 旧栈 /root/qqbot 一旦被拉起，会静默占住 7788/7789，v5 反而起不来。
+# 抓"开错实例"：检查正在跑的核心进程，工作目录是不是 /srv/digitallife。
+# 旧栈 /srv/napcat 一旦被拉起，会静默占住 7788/7789，v5 反而起不来。
 # 用法：bash scripts/check-instance-owner.sh
 set -u
-ROOT=/root/qqbot-v5
+ROOT=/srv/digitallife
 FAIL=0
 say() { printf '%-22s %s\n' "$1" "$2"; }
 

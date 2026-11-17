@@ -41,7 +41,7 @@ function parseRss(xml, limit = 6) {
 async function rewriteQueries(q) {
   try {
     const fs = await import('node:fs');
-    const cfg = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/config.json', 'utf8'));
+    const cfg = JSON.parse(fs.readFileSync('/srv/digitallife/bot/config.json', 'utf8'));
     const key = process.env.DEEPSEEK_API_KEY || cfg.deepseek.apiKey;
     const r = await fetch(`${(cfg.deepseek.baseUrl || 'https://api.deepseek.com').replace(/\/$/, '')}/chat/completions`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },

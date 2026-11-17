@@ -40,5 +40,5 @@ echo "服务器证书指纹（可选，客户端会用 CA 校验，不靠指纹�
 openssl x509 -in server.crt -noout -fingerprint -sha256 | sed 's/.*=//'
 echo
 echo "下一步："
-echo "  scp ca.crt server.crt server.key  服务器:/path/to/qqbot-v5/channel/tls/"
+echo "  scp ca.crt server.crt server.key  服务器:/path/to/digitallife/channel/tls/"
 echo "  cp ca.crt client.p12              app/src/main/assets/"

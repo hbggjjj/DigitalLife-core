@@ -35,10 +35,10 @@ export function knownChars() {
   } catch {}
   // 项目文档里出现过的字，也算她"读得到"的字
   for (const f of ['README.md', 'PROMPT-视频理解.md', 'INSTALL-AGENT.md']) {
-    addFromFile(set, `/root/qqbot-v5/${f}`);
+    addFromFile(set, `/srv/digitallife/${f}`);
   }
   try {
-    const h = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/state.json', 'utf8')).history || [];
+    const h = JSON.parse(fs.readFileSync('/srv/digitallife/bot/state.json', 'utf8')).history || [];
     // 只用他发来的话，不含她自己的输出——否则一个错字出现一次就"合法"了
     for (const x of h) {
       if (x.dir !== 'in') continue;

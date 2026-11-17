@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const FILE = '/root/qqbot-v5/bot/events.jsonl';
+const FILE = '/srv/digitallife/bot/events.jsonl';
 const MAX_BYTES = 4 * 1024 * 1024;
 
 let lastRotateCheck = 0;

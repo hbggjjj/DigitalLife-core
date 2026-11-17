@@ -1,9 +1,9 @@
 // 面板改完必跑：把页面里的 <script> 抽出来做语法检查
-// 用法：node /root/qqbot-v5/panel/check-page.mjs
+// 用法：node /srv/digitallife/panel/check-page.mjs
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 
-const src = fs.readFileSync('/root/qqbot-v5/panel/server.mjs', 'utf8');
+const src = fs.readFileSync('/srv/digitallife/panel/server.mjs', 'utf8');
 const i = src.indexOf('<script>');
 const j = src.indexOf('</script>', i);
 if (i < 0 || j < 0) { console.error('没找到 <script> 段'); process.exit(2); }

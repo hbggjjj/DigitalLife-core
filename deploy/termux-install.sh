@@ -5,10 +5,10 @@
 #   pkg update && pkg install -y proot-distro
 #   proot-distro install ubuntu
 #   proot-distro login ubuntu
-# 然后在 Ubuntu 里跑本脚本（它会把代码装到 /root/qqbot-v5）。
+# 然后在 Ubuntu 里跑本脚本（它会把代码装到 /srv/digitallife）。
 set -e
 SRC_DIR=$(cd "$(dirname "$0")/.." && pwd)
-APP=/root/qqbot-v5
+APP=/srv/digitallife
 LIFE=__MIKU_HOME__
 
 echo "== 装系统依赖 =="
@@ -36,13 +36,13 @@ find "$APP" -type f \( -name '*.mjs' -o -name '*.sh' -o -name '*.json' \) -print
 done
 
 echo "== 自建 IM（VoceChat）=="
-if [ ! -x /root/vocechat/vocechat-server ]; then
-  mkdir -p /root/vocechat
+if [ ! -x /srv/vocechat/vocechat-server ]; then
+  mkdir -p /srv/vocechat
   ARCH=$(uname -m)
   if [ "$ARCH" = "aarch64" ]; then VC=aarch64; else VC=x86_64; fi
   curl -fsSL -o /tmp/vc.zip "https://github.com/Privoce/vocechat-server-rust/releases/download/v0.5.39/vocechat-server-v0.5.39-${VC}-unknown-linux-musl.zip" || {
-    echo "VoceChat 下载失败：请手动把二进制放到 /root/vocechat/vocechat-server"; }
-  (cd /root/vocechat && unzip -o /tmp/vc.zip >/dev/null 2>&1 || true; chmod +x vocechat-server 2>/dev/null || true)
+    echo "VoceChat 下载失败：请手动把二进制放到 /srv/vocechat/vocechat-server"; }
+  (cd /srv/vocechat && unzip -o /tmp/vc.zip >/dev/null 2>&1 || true; chmod +x vocechat-server 2>/dev/null || true)
 fi
 
 echo "== 生成示例配置 =="

@@ -2,7 +2,7 @@
 // 她只看最近几条摘要；完整记录给维护者排障。
 import fs from 'node:fs';
 
-const FILE = '/root/qqbot-v5/bot/errors.log';
+const FILE = '/srv/digitallife/bot/errors.log';
 const MAX_BYTES = 2 * 1024 * 1024;
 let lastRotate = 0;
 

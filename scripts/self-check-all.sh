@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # 一键自检：全部只读，不改任何东西。约 5–10 秒。
 set -u
-cd /root/qqbot-v5 || exit 1
+cd /srv/digitallife || exit 1
 FAIL=0
 say() { printf '%-28s %s\n' "$1" "$2"; }
 
@@ -35,7 +35,7 @@ else
 fi
 
 # 2) 心智字段
-OUT=$(node -e "import('/root/qqbot-v5/src/core/mind.mjs').then(m=>{const a=m.auditSchema();console.log(a.total+':'+a.missingInNormalize.length+':'+a.missingInPrompt.length)})" 2>/dev/null)
+OUT=$(node -e "import('/srv/digitallife/src/core/mind.mjs').then(m=>{const a=m.auditSchema();console.log(a.total+':'+a.missingInNormalize.length+':'+a.missingInPrompt.length)})" 2>/dev/null)
 N=$(echo "$OUT" | cut -d: -f1); MISS=$(echo "$OUT" | cut -d: -f2-)
 if [ "$MISS" = "0:0" ]; then say "心智字段" "OK（$N，无缺失）"; else say "心智字段" "FAIL（$OUT）"; FAIL=1; fi
 

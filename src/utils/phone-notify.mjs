@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import http from 'node:http';
 
-const HDR = '/root/.dsh/.bridge_headers';
+const HDR = (process.env.DSHA_DIR || '/var/lib/dsha') + '/.bridge_headers';
 
 function headers() {
   try {
