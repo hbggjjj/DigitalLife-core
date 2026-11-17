@@ -942,6 +942,8 @@ bash scripts/sandbox-destroy.sh <目录> [--no-last-words]
 
 ## 客户端
 
-- 本仓库只带**最素版**客户端：[client-minimal](client-minimal)（拉历史 / 发消息 / 发图 / 已读，无动画无花活）
-- 证书**不自带**，用 `client-minimal/scripts/gen-certs.sh` 自己签（CA + server + client.p12）
-- 身份三层：**mTLS 客户端证书 + CHANNEL_TOKEN + DEVICE_PIN**；PIN 不对服务器直接 401，消息不入库
+本仓库附带一个最小实现：[client-minimal](client-minimal)。
+只实现四个动作（拉历史 / 发消息 / 发图 / 已读），无第三方依赖。
+
+证书不自带，用 `client-minimal/scripts/gen-certs.sh` 自行签发；
+身份三层为 **mTLS 客户端证书 + CHANNEL_TOKEN + DEVICE_PIN**，PIN 不匹配时服务端返回 401 且不写入消息。

@@ -23,9 +23,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * 最素的通道客户端：没有动画、没有主题、没有花活。
- * 只做四件事：填配置 → 拉历史 → 发消息 → 显示。
- * 协议和验证跟正式客户端完全一致（mTLS + token + PIN）。
+ * 通道客户端最小实现：填配置 → 拉历史 → 发消息 → 显示。
+ * 验证方式与协议见同目录 README（mTLS + token + PIN）。
  */
 public class MainActivity extends Activity {
     private final ExecutorService io = Executors.newSingleThreadExecutor();
