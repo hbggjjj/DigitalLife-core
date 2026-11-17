@@ -175,7 +175,15 @@ const server = http.createServer(async (req, res) => {
   // 取图
   if (p.startsWith('/media/')) {
     const rel = p.slice('/media/'.length).split('/').filter(Boolean).map((x) => path.basename(x)).join('/');
-    const f = path.join(MEDIA, rel);
+    let f = path.join(MEDIA, rel);
+    if (!fs.existsSync(f) && !rel.includes('/')) {          // 老记录只有文件名，去分月目录里找
+      try {
+        for (const d of fs.readdirSync(MEDIA)) {
+          const cand = path.join(MEDIA, d, rel);
+          if (fs.existsSync(cand) && fs.statSync(cand).isFile()) { f = cand; break; }
+        }
+      } catch {}
+    }
     if (!fs.existsSync(f)) return json(res, { ok: false, message: '没有这张图' }, 404);
     const type = /\.png$/i.test(rel) ? 'image/png'
       : /\.gif$/i.test(rel) ? 'image/gif'
