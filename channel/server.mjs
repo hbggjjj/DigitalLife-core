@@ -119,6 +119,7 @@ function json(res, obj, code = 200) {
 }
 
 const server = http.createServer(async (req, res) => {
+ try {
   const u = new URL(req.url, 'http://x');
   const p = u.pathname;
   const token = req.headers['x-channel-token'] || u.searchParams.get('token')
@@ -176,7 +177,11 @@ const server = http.createServer(async (req, res) => {
     const rel = p.slice('/media/'.length).split('/').filter(Boolean).map((x) => path.basename(x)).join('/');
     const f = path.join(MEDIA, rel);
     if (!fs.existsSync(f)) return json(res, { ok: false, message: '没有这张图' }, 404);
-    res.writeHead(200, { 'Content-Type': name.endsWith('.png') ? 'image/png' : 'image/jpeg', 'Cache-Control': 'max-age=86400' });
+    const type = /\.png$/i.test(rel) ? 'image/png'
+      : /\.gif$/i.test(rel) ? 'image/gif'
+      : /\.webp$/i.test(rel) ? 'image/webp'
+      : 'image/jpeg';
+    res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'max-age=86400' });
     return res.end(fs.readFileSync(f));
   }
 
@@ -272,6 +277,23 @@ const server = http.createServer(async (req, res) => {
         || (d.message && d.message.text)
         || ''
       ).trim();
+      // 图片/表情包：adapter 传的是 payload.path（服务器本地路径）
+      const imgPath = (d.payload && (d.payload.path || d.payload.file)) || '';
+      if (!text && imgPath) {
+        try {
+          const buf = fs.readFileSync(imgPath);
+          const dd = new Date();
+          const bucket = `${dd.getFullYear()}${String(dd.getMonth() + 1).padStart(2, '0')}`;
+          fs.mkdirSync(path.join(MEDIA, bucket), { recursive: true });
+          const name = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}.${(path.extname(imgPath) || '.jpg').replace('.', '')}`;
+          const rel = bucket + '/' + name;
+          fs.writeFileSync(path.join(MEDIA, rel), buf);
+          const it = push({ text: '', images: [{ name: rel, path: path.join(MEDIA, rel) }] });
+          return json(res, { ok: true, id: it.id });
+        } catch (e) {
+          return json(res, { ok: false, message: '读不到这张图: ' + e.message }, 400);
+        }
+      }
       if (!text) return json(res, { ok: false, message: '空消息' }, 400);
       const it = push({ text, mid: d.mid || null });
       return json(res, { ok: true, id: it.id });
@@ -279,6 +301,9 @@ const server = http.createServer(async (req, res) => {
     return;
   }
   return json(res, { ok: false, message: '没有这个接口' }, 404);
+} catch (e) {
+    try { if (!res.headersSent) { res.writeHead(500, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: false, message: String(e && e.message || e) })); } } catch {}
+  }
 });
 
 const WEB = `<!doctype html><html lang="zh"><head><meta charset="utf-8">
