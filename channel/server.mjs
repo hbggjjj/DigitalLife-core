@@ -19,6 +19,7 @@ const DEVICE_PIN = process.env.CHANNEL_PIN || '';
 fs.mkdirSync(DATA, { recursive: true });
 const MSG = path.join(DATA, 'messages.jsonl');
 const READ = path.join(DATA, 'read.json');
+let lastClientAt = 0;   // 最近一次客户端拉历史的时刻
 const MEDIA = path.join(DATA, 'media');
 fs.mkdirSync(MEDIA, { recursive: true });
 
@@ -136,6 +137,7 @@ const server = http.createServer(async (req, res) => {
 
   // 增量拉历史：?since=<id>
   if (p === '/history') {
+    lastClientAt = Date.now();
     const since = Number(u.searchParams.get('since') || 0);
     const limit = Math.min(500, Math.max(1, Number(u.searchParams.get('limit') || 200)));
     const rest = cache.filter((m) => m.id > since);
@@ -273,7 +275,8 @@ const server = http.createServer(async (req, res) => {
 
   // —— 兼容 bot 现有 selfim 适配器的 /api/v1/*（这样她自己里也能直接发进来）
   if (p === '/api/v1/health') {
-    return json(res, { ok: true, online: true, clientOnline: clients.size > 0, lastSendOkAt: Date.now() });
+    const online = clients.size > 0 || Date.now() - lastClientAt < 120000;   // 长连接或 2 分钟内拉过历史
+    return json(res, { ok: true, online: true, clientOnline: online, lastSendOkAt: Date.now() });
   }
   if (p === '/api/v1/send' && req.method === 'POST') {
     let b = ''; req.on('data', (c) => (b += c));

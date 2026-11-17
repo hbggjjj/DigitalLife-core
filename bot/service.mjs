@@ -153,7 +153,11 @@ async function selfimOnline() {
   try {
     const base = ((cfg.selfim && cfg.selfim.baseUrl) || '').replace(/\/$/, '');
     if (!base) return false;
-    const r = await fetch(base + '/api/v1/health', { signal: AbortSignal.timeout(6000) });
+    const tk = (cfg.selfim && cfg.selfim.token) || '';
+    const r = await fetch(base + '/api/v1/health', {
+      headers: tk ? { Authorization: 'Bearer ' + tk } : {},
+      signal: AbortSignal.timeout(6000),
+    });
     const d = await r.json();
     return !!(d && d.ok && d.online);
   } catch { return false; }
@@ -816,7 +820,12 @@ async function sendSegments(uid, segments) {
         } catch {}
         // 他手机上的客户端此刻在不在线：不在就攒着，等她/他知道
         try {
-          const hr = await fetch('http://127.0.0.1:7791/api/v1/health', { signal: AbortSignal.timeout(3000) });
+          const imBase = ((cfg.selfim && cfg.selfim.baseUrl) || 'http://127.0.0.1:7791').replace(/\/$/, '');
+          const imTk = (cfg.selfim && cfg.selfim.token) || '';
+          const hr = await fetch(imBase + '/api/v1/health', {
+            headers: imTk ? { Authorization: 'Bearer ' + imTk } : {},
+            signal: AbortSignal.timeout(3000),
+          });
           const hj = await hr.json();
           if (hj && hj.clientOnline === false) {
             emit('reply', 'queued', '他手机上的客户端现在不在线——这条先攒着，等他打开会一次收到');
