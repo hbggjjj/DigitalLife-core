@@ -651,6 +651,31 @@ function conflictHint(historyText, hisText) {
   } catch { return ''; }
 }
 
+
+// 记忆满了就把这件事摆给她，并给出"最久没被想起的几条"让她自己挑（不下指令、不替她删）
+function memoryFullHint() {
+  try {
+    const life = process.env.LIFE_DIR || '/var/lib/digitallife';
+    const raw = fs.readFileSync(life + '/memory.md', 'utf8');
+    const CAP = 10000;
+    if (raw.length <= CAP) return '';
+    const lines = raw.split('\n').filter((l) => l.startsWith('- '));
+    const parse = (l) => {
+      const m = l.match(/^-\s*(\d{4}-\d{2}-\d{2})?[：:]?\s*([\s\S]*?)\s*(?:\[src:(\w+)\])?\s*(?:\[h(\d+)\])?\s*$/);
+      if (!m) return null;
+      return { date: m[1] || '', text: (m[2] || '').trim(), hits: m[4] ? Number(m[4]) : 0, raw: l };
+    };
+    const items = lines.map(parse).filter((x) => x && x.text);
+    const old = items
+      .sort((a, b) => (a.hits - b.hits) || (a.date < b.date ? -1 : 1))
+      .slice(0, 8);
+    return '\n\n（你的记忆已经满了：现在 ' + raw.length + ' 字，上限 ' + CAP + '，这一次没写进去。\n'
+      + '下面这些是很久没被想起的，你要是不想留，可以用 remember 的 drop 写里面几个字：\n'
+      + old.map((x) => `- ${x.date ? x.date + '：' : ''}${x.text.slice(0, 40)}…（想起过 ${x.hits} 次）`).join('\n')
+      + '）';
+  } catch { return ''; }
+}
+
   let hidden = '';
   try {
     const ns = recentNeeds(12, 2);
@@ -661,6 +686,7 @@ function conflictHint(historyText, hisText) {
     }
   } catch {}
   hidden += conflictHint(historyLines, userText);
+  hidden += memoryFullHint();
   const result = await mindReply(historyLines + hidden, userText, buildSelfStats() + sleepHint + clientPresenceLine() + oneMessageHint(), { noBrowse: SLEEP_RE.test(userText), imagePath, channelNote, fromTag });
   const segs = pickSay(result);
   const applied = applyActions(result);
