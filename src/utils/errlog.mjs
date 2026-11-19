@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // 详细错误日志：每次报错写一行 JSON，带堆栈和上下文。
 // 她只看最近几条摘要；完整记录给维护者排障。
 import fs from 'node:fs';
@@ -16,6 +17,9 @@ function rotate() {
   } catch {}
 }
 
+/** 严重到要立刻告诉维护者的错误源（其余只进日志，不打扰人） */
+const ALERT_SOURCES = new Set(['inbound', 'send', 'channel', 'life', 'core', 'memory', 'auth', 'asr', 'vision']);
+
 /** 记一条错误。meta 里放和这次错误有关的上下文（url/bvid/uid…） */
 export function logErr(source, err, meta = {}) {
   try {
@@ -32,6 +36,10 @@ export function logErr(source, err, meta = {}) {
       meta,                                    // 上下文
     };
     fs.appendFileSync(FILE, JSON.stringify(rec) + '\n');
+    if (ALERT_SOURCES.has(source)) {
+      import('./alert.mjs').then((m) => m.alert(source + ':' + String(rec.message).slice(0, 40),
+        `${source} 报错`, rec.message)).catch(() => {});
+    }
     return rec;
   } catch { return null; }
 }

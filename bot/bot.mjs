@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // 主动开口：不用定时器，用「冲动值」决定要不要说话
 import fs from 'node:fs';
 import dns from 'node:dns';
@@ -330,6 +331,10 @@ function factsForHer(st) {
   } catch {}
   const cap = cfg.schedule?.dailyMax ?? 0;
   if (cap > 0 && sentToday >= cap) parts.push(`已经超过平时的 ${cap} 条了，你自己看要不要收着点`);
+  if (!inActiveWindow()) {
+    const sc = windowCfg();
+    parts.push(`现在不在你平时的活跃时段（${sc.activeStart || '08:00'}–${sc.activeEnd || '02:00'}），但这只是事实，不是禁令：想说话就说，想安静就安静`);
+  }
   parts.push('同一件事尽量一条说完；想连发的时候，先问自己是不是在等一个回应');
   return '事实：' + parts.join(' · ') + '（这些只是参考，开不开口你定）';
 }
@@ -353,11 +358,36 @@ async function tickOnce() {
   reloadCfg();
   const st0 = loadState();
   if (st0.quietUntil && Date.now() < st0.quietUntil) {
-    emit('nudge', 'skip', '系统跳过：你说过要睡了，暂时不打扰');
+    // ⑤ 安静期里也给她一次改主意的机会（每个安静期只问一次，不惊动他）
+    if (!st0.quietAsked) {
+      st0.quietAsked = 1;
+      saveState(st0);
+      try {
+        const { reviewRequest } = await import('../src/core/mind.mjs');
+        const left = Math.round((st0.quietUntil - Date.now()) / 60000);
+        const d = await reviewRequest({
+          title: '还安静吗',
+          why: `你自己下的安静还有 ${left} 分钟。要继续安静就说不改；想现在恢复说话就改。`,
+          files: '(只改安静状态，不动文件)',
+        });
+        if (d.allow) {
+          const s2 = loadState();
+          s2.quietUntil = 0; s2.sleepGraceUntil = 0; s2.quietAsked = 0;
+          saveState(s2);
+          emit('nudge', 'wake', '她自己结束了安静');
+        } else {
+          emit('nudge', 'skip', `她决定继续安静（还剩 ${left} 分钟）`);
+        }
+      } catch (e) { log('安静期确认失败：' + e.message); }
+      return;
+    }
+    emit('nudge', 'skip', '她自己上的安静还没到，这次不打扰');
     return;
   }
+  if (!st0.quietUntil) st0.quietAsked = 0;
   if (cfg.schedule?.enabled === false) return;
-  if (!inActiveWindow()) { emit('nudge', 'skip', '系统跳过：不在活跃时段（不是你选的）'); return; }
+  // ④ 活跃时段不再由系统闸掉：不在时段时只作为事实告诉她，开不开口她定
+  const offHours = !inActiveWindow();
   const state = loadState();
   // 她自己给自己上的安静：这期间不问她（她自己能提前取消）
   const qm = Number(state.quietUntilMine) || 0;
