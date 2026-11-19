@@ -16,7 +16,7 @@ import { buildContext } from '../src/core/context.mjs';
 import { takeFacts, takeReceipts } from '../src/utils/swallowed.mjs';
 import { recentNeeds } from '../src/core/inner.mjs';
 import { reply as mindReply, followup as mindFollowup, applyActions, pickSay, auditSchema, probe as mindProbe } from '../src/core/mind.mjs';
-import { emit } from '../src/utils/events.mjs';
+import { emit, setLane } from '../src/utils/events.mjs';
 import { sync as syncClock, status as clockStatus } from '../src/utils/clock.mjs';
 import { logErr, brief as errBrief } from '../src/utils/errlog.mjs';
 import { snapshot as guardSnapshot, verify as guardVerify } from '../src/utils/guard.mjs';
@@ -806,7 +806,7 @@ function mirrorToChannel(text) {
     if (!cu || !text) return;
     fetch(`${cu.replace(/\/$/, '')}/push`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(ct ? { 'X-Channel-Token': ct } : {}) },
+      headers: { 'Content-Type': 'application/json', 'X-Channel-Actor': 'her', ...(ct ? { 'X-Channel-Token': ct } : {}) },
       body: JSON.stringify({ text, srcId: 'out:' + (ev && ev.message_id ? ev.message_id : '') + ':' + text.slice(0, 24) }),
       signal: AbortSignal.timeout(4000),
     }).catch(() => {});
@@ -822,7 +822,7 @@ function mirrorInboundToChannel(text) {
     if (!cu || !text) return;
     fetch(`${cu.replace(/\/$/, '')}/mirror`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(ct ? { 'X-Channel-Token': ct } : {}) },
+      headers: { 'Content-Type': 'application/json', 'X-Channel-Actor': 'her', ...(ct ? { 'X-Channel-Token': ct } : {}) },
       body: JSON.stringify({ dir: 'in', text, at: Date.now() }),
       signal: AbortSignal.timeout(4000),
     }).catch(() => {});
@@ -838,7 +838,7 @@ function mirrorImageToChannel(localPath) {
     if (!cu || !localPath) return;
     fetch(`${cu.replace(/\/$/, '')}/push`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(ct ? { 'X-Channel-Token': ct } : {}) },
+      headers: { 'Content-Type': 'application/json', 'X-Channel-Actor': 'her', ...(ct ? { 'X-Channel-Token': ct } : {}) },
       body: JSON.stringify({ text: '', images: [{ url: localPath }] }),
       signal: AbortSignal.timeout(4000),
     }).catch(() => {});
@@ -868,7 +868,7 @@ async function sendSegments(uid, segments) {
           const cu = process.env.CHANNEL_URL;
           const ct = process.env.CHANNEL_TOKEN || '';
           if (cu) fetch(`${cu.replace(/\/$/, '')}/push`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json', ...(ct ? { 'X-Channel-Token': ct } : {}) },
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Channel-Actor': 'her', ...(ct ? { 'X-Channel-Token': ct } : {}) },
             body: JSON.stringify({ text: seg, mid: `seg${i + 1}` }), signal: AbortSignal.timeout(4000),
           }).catch(() => {});
         } catch {}
@@ -962,6 +962,8 @@ async function handleMessage(ev) {
   }
   const agentSent = origin === 'agent';   // 只认 origin，不再靠记得加 _agent
   // 代发不进关系历史：她读的最近对话里不该有"别人拿他的名义说的话"
+  // 谁触发的这一轮：维护者（agent/system）→ 事件归维护流；他本人 → 归她的事件流
+  setLane(origin === 'user' ? 'her' : 'maintainer');
   const sysSent = origin === 'system';       // 系统告知：她看得见，但不是他说的、更不是她说的
   if (isDebug || agentSent) pushDebug('in', text, agentSent);
   else pushHistory({ dir: 'in', text, at: Date.now(), via: isSelfim ? 'selfim' : 'qq', ...(isResend ? { resend: true } : {}), ...(sysSent ? { sys: true } : {}) });

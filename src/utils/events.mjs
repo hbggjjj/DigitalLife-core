@@ -1,9 +1,16 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // 结构化事件流：机器人每一步决策都写进 events.jsonl，供控制面板展示
 import fs from 'node:fs';
 import path from 'node:path';
 
 const FILE = '/srv/digitallife/bot/events.jsonl';
 const MAX_BYTES = 4 * 1024 * 1024;
+
+let lane = 'her';   // 当前这轮是谁触发的：her（他和她自己）/ maintainer（维护者）
+
+/** 切换本轮所属通道：维护者触发的回合里，所有事件都归到维护流 */
+export function setLane(v) { lane = (v === 'maintainer' ? 'maintainer' : 'her'); }
+export function currentLane() { return lane; }
 
 let lastRotateCheck = 0;
 let lastEmit = { key: '', at: 0 };   // 同一件事 3 秒内重复写，只留一条
@@ -13,7 +20,12 @@ export function emit(src, type, text = '', meta = null) {
   const nowMs = Date.now();
   if (key === lastEmit.key && nowMs - lastEmit.at < 3000) return { deduped: true, ts: nowMs };
   lastEmit = { key, at: nowMs };
-  const rec = { ts: Date.now(), src, type, text: String(text || '').slice(0, 2000), meta };
+  const m = meta && typeof meta === 'object' ? meta : (meta ? { v: meta } : null);
+  const rec = {
+    ts: Date.now(), src, type, text: String(text || '').slice(0, 2000),
+    lane: (m && m.lane) || lane,
+    meta: m,
+  };
   try {
     const now = Date.now();
     if (now - lastRotateCheck > 60000) {

@@ -214,6 +214,8 @@ pre.doc{white-space:pre-wrap;font:12.5px/1.55 ui-monospace,Menlo,monospace;backg
 summary{cursor:pointer;font-size:13px;color:#b9bfcc;padding:4px 0}
 
 /* 顶部 tab */
+.tabbtn{padding:7px 14px;border-radius:999px;background:rgba(255,255,255,.06);color:#c3c8d2;font:600 12px/1 inherit;border:1px solid rgba(255,255,255,.10);cursor:pointer}
+.tabbtn.on{background:var(--accent);color:#101110;border-color:var(--accent)}
 .tabbar{
   position:sticky;top:0;z-index:20;display:flex;gap:6px;overflow-x:auto;
   padding:8px 2px;margin:0 0 12px;scrollbar-width:none;
@@ -236,6 +238,8 @@ summary{cursor:pointer;font-size:13px;color:#b9bfcc;padding:4px 0}
   *{animation:none !important;transition:none !important}
 }
 
+.tabbtn{padding:7px 14px;border-radius:999px;background:rgba(255,255,255,.06);color:#c3c8d2;font:600 12px/1 inherit;border:1px solid rgba(255,255,255,.10);cursor:pointer}
+.tabbtn.on{background:var(--accent);color:#101110;border-color:var(--accent)}
 .tabbar{position:sticky;top:0;z-index:20;display:flex;gap:6px;overflow-x:auto;padding:8px 2px;margin:0 0 12px;background:linear-gradient(180deg, rgba(12,13,16,.92), rgba(12,13,16,.55));backdrop-filter:blur(10px)}
 .tabbar button{flex:0 0 auto;padding:9px 14px;border-radius:999px;background:rgba(255,255,255,.06);color:#c3c8d2;font:600 13px/1 inherit;border:1px solid transparent;transition:background .2s,color .15s}
 .tabbar button.on{background:var(--accent);color:#101110;border-color:var(--accent)}
@@ -287,6 +291,10 @@ body[data-tab="login"] .pane-state,body[data-tab="login"] .pane-events,body[data
 
 <div class="card">
   <div class="row"><span class="k">它现在在做什么</span><span class="v" id="brainState">—</span></div>
+  <div style="display:flex;gap:8px;margin:8px 0 2px">
+    <button id="laneHer" class="tabbtn on" onclick="setLane('her')">她的事件</button>
+    <button id="laneMnt" class="tabbtn" onclick="setLane('maintainer')">维护者</button>
+  </div>
   <div id="events" style="margin-top:6px"><div class="hint">还没有动静</div></div>
 </div>
 
@@ -1011,12 +1019,29 @@ var lastTs=0, evBuf=[];
 var TAGS={in_msg:['t-in','收到'],out_msg:['t-out','发出'],think_start:['t-think','思考'],
   think_end:['t-done','想完'],skip:['t-skip','跳过'],degrade:['t-err','降级'],timeout:['t-err','超时'],
   error:['t-err','出错'],decide:['t-think','决定'],check:['t-check','检查'],reset:['t-skip','重置'],quick:['t-done','秒回'],stash:['t-life','忍住'],delay:['t-think','晚点回'],silence:['t-skip','已读不回'],inner:['t-life','心里'],bili:['t-life','刷B站'],normalize:['t-norm','修正'],warn:['t-warn','警告'],invalid:['t-err','作废'],followup:['t-think','追问'],queued:['t-think','攒着'],debug_reply:['t-check','调试回复'],sysline:['t-think','系统代说']};
+// 面板不显示维护者自己的自检/告知类事件：它们不属于她的行为
+function isNoise(e){
+  var t=String(e.text||'');
+  if(e.type==='notice') return true;
+  if(/（自检）|报警通道自检|（维护者）|selfcheck|selftest/.test(t)) return true;
+  if(e.meta && e.meta.actor==='maintainer') return true;
+  return false;
+}
 function fmtTime(ts){var d=new Date(ts),p=function(n){return String(n).padStart(2,'0')};return p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds())}
 function esc(s){return String(s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]})}
+var CUR_LANE='her';
+function setLane(v){
+  CUR_LANE=v;
+  var a=document.getElementById('laneHer'), b=document.getElementById('laneMnt');
+  if(a&&b){ a.className='tabbtn'+(v==='her'?' on':''); b.className='tabbtn'+(v==='maintainer'?' on':''); }
+  renderEvents();
+}
+function laneOf(e){ return e.lane || (e.meta && e.meta.lane) || 'her'; }
 function renderEvents(){
   var box=$('events');
   if(!evBuf.length){box.innerHTML='<div class="hint">还没有动静</div>';return}
-  var arr=evBuf.slice(-40).reverse(), html='';
+  if(!evBuf.length){box.innerHTML='<div class="hint">还没有动静</div>';return}
+  var arr=evBuf.filter(function(x){return laneOf(x)===CUR_LANE}).slice(-40).reverse(), html='';
   for(var i=0;i<arr.length;i++){
     var e=arr[i], t=TAGS[e.type]||['t-skip',e.type];
     if(e.type==='out_msg' && e.meta && e.meta.followup) t=['t-think','追问'];

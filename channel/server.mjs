@@ -260,6 +260,11 @@ async function handle(req, res) {
 
   // 下行：bot 把她的话推进来
   if (p === '/push' && req.method === 'POST') {
+    // 硬规则：只有 her 能往这条通道「说」。维护者（我）一律 403，代码层面堵死。
+    const pushActor = String(req.headers['x-channel-actor'] || '').toLowerCase();
+    if (pushActor !== 'her') {
+      return json(res, { ok: false, code: 'ACTOR_FORBIDDEN', message: '维护者不能以她的身份往对话框发消息' }, 403);
+    }
     let b = ''; req.on('data', (c) => (b += c));
     req.on('end', () => {
       let d = {}; try { d = JSON.parse(b); } catch {}
@@ -304,6 +309,11 @@ async function handle(req, res) {
     return json(res, { ok: true, online: true, clientOnline: online, lastSendOkAt: Date.now() });
   }
   if (p === '/api/v1/send' && req.method === 'POST') {
+    // 同一条硬规则：只有"她"能往这条通道发；维护者一律 403
+    const actor2 = String(req.headers['x-channel-actor'] || '').toLowerCase();
+    if (actor2 !== 'her') {
+      return json(res, { ok: false, message: '这条通道只允许 her 发送；维护者请走维护通道' }, 403);
+    }
     let b = ''; req.on('data', (c) => (b += c));
     req.on('end', () => {
       let d = {}; try { d = JSON.parse(b); } catch {}

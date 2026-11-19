@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // 自建 IM 通道（协议见 docs/CHANNEL-PROTOCOL.md）
 // 只做"收发 + 判活"，不碰她的心智。
 import { BaseAdapter } from './base.mjs';
@@ -16,6 +17,7 @@ export class SelfIMAdapter extends BaseAdapter {
       headers: {
         'Content-Type': 'application/json',
         ...(this.token ? { Authorization: 'Bearer ' + this.token } : {}),
+        'X-Channel-Actor': 'her',   // 只有她的发言能走这条通道（维护者会被 403）
         ...(opts.headers || {}),
       },
       body: opts.body ? JSON.stringify(opts.body) : undefined,

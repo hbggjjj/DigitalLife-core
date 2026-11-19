@@ -355,6 +355,7 @@ function splitArtifacts(segs) {
 }
 
 async function tickOnce() {
+  try { (await import('../src/utils/events.mjs')).setLane('her'); } catch {}
   reloadCfg();
   const st0 = loadState();
   if (st0.quietUntil && Date.now() < st0.quietUntil) {
