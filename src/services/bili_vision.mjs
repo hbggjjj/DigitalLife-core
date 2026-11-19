@@ -193,28 +193,35 @@ function sceneTimes(file, threshold = 0.3, max = 40) {
   } catch { return []; }
 }
 
-/** 选哪些时间点看：转场优先，均匀补齐，必须覆盖整段 */
-function pickTimes(dur, want, scenes) {
-  const n = Math.max(4, Math.min(24, want));
-  const end = dur > 0 ? dur : (scenes.length ? scenes[scenes.length - 1] + 5 : 60);
-  const picked = [];
-  const near = (v) => picked.some((x) => Math.abs(x - v) < Math.max(2, end / (n * 3)));
-  const push = (t) => {
-    const v = Math.round(t);
-    if (v < 0 || v >= end) return false;
-    if (near(v)) return false;
-    picked.push(v); return true;
-  };
-  // ① 转场：最多占七成名额
-  const budget = Math.min(Math.ceil(n * 0.7), scenes.length);
-  const step = budget > 0 ? scenes.length / budget : 1;
-  for (let i = 0; i < budget; i++) push(scenes[Math.floor(i * step)] + 1);
-  // ② 均匀补齐：在整段上铺，不够就把网格加密
-  for (let k = 1; picked.length < n && k <= 6; k++) {
-    const m = (n - picked.length) + 2;
-    for (let i = 0; i < m && picked.length < n; i++) push((end * (i + 0.5)) / m);
+/** 转场点 → 场景区间（不取切点本身，取区间内部，避开黑场过渡） */
+function sceneRanges(dur, scenes, end) {
+  const cuts = [0, ...scenes.filter((t) => t > 2 && t < end - 2), Math.round(end)];
+  const out = [];
+  for (let i = 0; i < cuts.length - 1; i++) {
+    const a = cuts[i], b = cuts[i + 1];
+    if (b - a >= 2) out.push([a, b]);
   }
-  return picked.sort((a, b) => a - b).slice(0, n);
+  return out;
+}
+
+/** 候选时间点：每个场景取"中间"，再加 1/4、3/4 兜底；均匀网格补齐 */
+function candidateTimes(dur, want, scenes) {
+  const n = Math.max(4, Math.min(30, want));
+  const end = dur > 0 ? dur : (scenes.length ? scenes[scenes.length - 1] + 5 : 60);
+  const list = [];
+  for (const [a, b] of sceneRanges(dur, scenes, end)) {
+    const len = b - a;
+    for (const f of [0.5, 0.25, 0.75]) list.push(Math.round(a + len * f));
+  }
+  const grid = Math.max(2, n);
+  for (let i = 0; i < grid; i++) list.push(Math.round((end * (i + 0.5)) / grid));
+  const seen = [];
+  for (const t of list) {
+    if (t < 0 || t >= end) continue;
+    if (seen.some((x) => Math.abs(x - t) < 2)) continue;
+    seen.push(t);
+  }
+  return seen.sort((a, b) => a - b);
 }
 
 /** 从本地文件按秒数取一帧（不联网，稳定） */
@@ -251,13 +258,25 @@ export async function realFrames(bvid, { cid, durSec = 0, want = 12, qn = 64 } =
 
   const total = dur > 0 ? dur : 0;
   const scenes = sceneTimes(src);                 // 转场时间点（先有文件才能扫）
-  const at = pickTimes(total, n, scenes);
+  const cand = candidateTimes(total, n * 2, scenes);
+  // 把整段分成 n 个时间段，每段里挑一张最有信息的——保证覆盖，又不留空段
+  const end = total > 0 ? total : (cand[cand.length - 1] || 60);
   const out = [];
-  for (let i = 0; i < at.length; i++) {
-    const p = `${dir}/f${String(i).padStart(2, '0')}.jpg`;
-    let ok = false;
-    try { ok = grabAt(src, at[i], p); } catch { ok = false; }
-    if (ok) out.push({ i, at: at[i], path: p, height: stream.height });
+  for (let b = 0; b < n; b++) {
+    const lo = (end * b) / n, hi = (end * (b + 1)) / n;
+    const inside = cand.filter((t) => t >= lo && t < hi);
+    const tries = inside.length ? inside.slice(0, 3) : [Math.round((lo + hi) / 2)];
+    for (const t of tries) {
+      const p = `${dir}/f${String(out.length).padStart(2, '0')}.jpg`;
+      let ok = false;
+      try { ok = grabAt(src, t, p); } catch { ok = false; }
+      if (!ok) continue;
+      let size = 0;
+      try { size = fs.statSync(p).size } catch {}
+      if (size < 6000) { try { fs.unlinkSync(p) } catch {} continue; }   // 黑屏/纯色：没信息，换下一张
+      out.push({ i: out.length, at: t, path: p, height: stream.height, size });
+      break;
+    }
   }
   try { fs.unlinkSync(src); } catch {}
   if (out.length < 3) { try { fs.rmSync(dir, { recursive: true, force: true }); } catch {} return null; }
