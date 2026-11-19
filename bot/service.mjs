@@ -21,7 +21,7 @@ import { logErr, brief as errBrief } from '../src/utils/errlog.mjs';
 import { snapshot as guardSnapshot, verify as guardVerify } from '../src/utils/guard.mjs';
 import { rebuild as rebuildSoul, get as getSoul } from '../src/core/soul.mjs';
 
-const ROOT = '/srv/digitallife/bot';
+const ROOT = '/root/qqbot-v5/bot';
 let cfg = JSON.parse(fs.readFileSync(path.join(ROOT, 'config.json'), 'utf8'));
 const STATE_FILE = path.join(ROOT, 'state.json');
 const LOG_FILE = path.join(ROOT, 'reply.log');
@@ -74,8 +74,8 @@ async function onebot(action, params) {
   return d;
 }
 
-const LOST = '/srv/digitallife/bot/undelivered.log';
-const DEBUG_CHAT = '/srv/digitallife/bot/debug-chat.jsonl';
+const LOST = '/root/qqbot-v5/bot/undelivered.log';
+const DEBUG_CHAT = '/root/qqbot-v5/bot/debug-chat.jsonl';
 function pushDebug(dir, text, agent = false) {
   try {
     fs.appendFileSync(DEBUG_CHAT, JSON.stringify({ dir, text, at: Date.now(), agent: !!agent }) + '\n');
@@ -89,7 +89,7 @@ function recentDebug(n = 6) {
       .map((l) => JSON.parse(l)).slice(-n);
   } catch { return []; }
 }
-const RETRY_Q = '/srv/digitallife/bot/retry_queue.jsonl';
+const RETRY_Q = '/root/qqbot-v5/bot/retry_queue.jsonl';
 let lastOnline = null;
 
 function uidOfTarget() {
@@ -257,7 +257,7 @@ async function sendWithRetry(action, params, tries = 3) {
   } catch (e) { log('写补发队列失败:', e.message); }
   // 连续发送失败 = 会话说"在线"但其实死了，插旗让守护进程重启 NapCat
   try {
-    fs.writeFileSync('/srv/digitallife/.session-dead', new Date().toISOString());
+    fs.writeFileSync('/root/qqbot-v5/.session-dead', new Date().toISOString());
     log('已标记会话死亡，等待守护进程重启 NapCat');
   } catch {}
   loginBadStreak++;
@@ -265,7 +265,7 @@ async function sendWithRetry(action, params, tries = 3) {
   emit('reply', 'error', `消息没送到（已重试 3 次，连续 ${loginBadStreak} 次）：` + lastErr);
   if (loginBadStreak >= 2) {
     emit('reply', 'health', `连续 ${loginBadStreak} 次发不出去，判定会话假死，正在重启 NapCat`);
-    try { fs.writeFileSync('/srv/digitallife/.session-dead', new Date().toISOString()); } catch {}
+    try { fs.writeFileSync('/root/qqbot-v5/.session-dead', new Date().toISOString()); } catch {}
   }
   logErr('send', new Error(lastErr || '发送失败'), {
     action,
@@ -564,7 +564,7 @@ function oneMessageHint() {
 
 function clientPresenceLine() {
   try {
-    const p = JSON.parse(fs.readFileSync('/srv/digitallife/bot/client-presence.json', 'utf8'));
+    const p = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/client-presence.json', 'utf8'));
     const fresh = p.at && Date.now() - p.at < 3 * 60 * 1000;
     return fresh
       ? '\n【他那边】他手机上的客户端在线，这条发出去他马上能看到。'
@@ -685,11 +685,22 @@ function memoryFullHint() {
         '\n这些是你自己心里写下的，不是他提的。说与不说、怎么提，都由你。';
     }
   } catch {}
+  // 他在问"过去某句原话"时：先去归档找原文，找不到就说找不到，不许自己补措辞
+  try {
+    const { detectQuoteIntent } = await import('../src/core/intent.mjs');
+    const { searchArchive, formatArchiveHits } = await import('../src/core/archive.mjs');
+    const intent = await detectQuoteIntent(userText);
+    if (intent) {
+      const hits = searchArchive(intent);
+      log('原文检索：' + JSON.stringify(intent) + ' 命中 ' + hits.length + ' 条');
+      hidden += '\n\n' + formatArchiveHits(hits, { question: userText });
+    }
+  } catch (e) { log('原文检索失败：' + e.message); }
   hidden += conflictHint(historyLines, userText);
   hidden += memoryFullHint();
   const result = await mindReply(historyLines + hidden, userText, buildSelfStats() + sleepHint + clientPresenceLine() + oneMessageHint(), { noBrowse: SLEEP_RE.test(userText), imagePath, channelNote, fromTag });
   const segs = pickSay(result);
-  const applied = applyActions(result);
+  const applied = applyActions(result, { evidence: String(userText || '') + '\n' + String(historyLines || '').slice(-600), msgId: String(userText || '').slice(0, 12) });
   // 她可以在任何一次回复里改自己的"下次醒来"——不用等下一次生活循环
   try {
     const aim = Number(result && result.awakeIn);
@@ -1437,11 +1448,11 @@ setInterval(() => { maybeFollowUp().catch((e) => log('追问异常:', e.message)
 setInterval(async () => {
   const on = await onlineNow();
   try {
-    fs.writeFileSync('/srv/digitallife/bot/.online', JSON.stringify({ online: on, at: Date.now(), state: lastLoginState, badStreak: loginBadStreak }));
+    fs.writeFileSync('/root/qqbot-v5/bot/.online', JSON.stringify({ online: on, at: Date.now(), state: lastLoginState, badStreak: loginBadStreak }));
   } catch {}
   // 假在线：NapCat 说 online，但连续两次发不出去 / 检测失败 → 重启 NapCat
   if (!on && loginBadStreak >= 2) {
-    try { fs.writeFileSync('/srv/digitallife/.session-dead', new Date().toISOString()); } catch {}
+    try { fs.writeFileSync('/root/qqbot-v5/.session-dead', new Date().toISOString()); } catch {}
     emit('reply', 'health', `登录通道异常（连续 ${loginBadStreak} 次失败），已插旗让守护进程重启 NapCat`);
   }
   if (lastOnline === false && on) {
@@ -1457,7 +1468,7 @@ setInterval(async () => {
       // 自检只发一个 200 探测，不经过模型、不替她说话
       const ok2 = await pingNapcat();
       emit('reply', 'health', ok2 ? '自检：NapCat 200，通道活着' : '自检：NapCat 无响应');
-      if (!ok2) { try { fs.writeFileSync('/srv/digitallife/.session-dead', new Date().toISOString()); } catch {} }
+      if (!ok2) { try { fs.writeFileSync('/root/qqbot-v5/.session-dead', new Date().toISOString()); } catch {} }
     }
   }
   lastOnline = on;
