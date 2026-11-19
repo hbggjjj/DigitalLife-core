@@ -29,9 +29,11 @@ export function searchArchive({ keywords = [], sinceDays = 45, who = 'in', limit
   const cut = Date.now() - 2 * 86400000;
   const rows = load({ sinceMs, who }).filter((d) => d.at < cut);
   const STOP = new Set(['当时', '上次', '那次', '那天', '之前', '原话', '原句', '什么', '怎么', '说的', '讲过', '记不记得', '我', '你', '他', '她']);
-  const kws = keywords.map((k) => String(k).trim()).filter((k) => k.length >= 1 && !STOP.has(k));
-  // 关键词全是单字时不可靠（"脸"会命中歌词和无关句子）：宁可不给，也不能给错原文
-  if (kws.length && kws.every((k) => k.length <= 1)) return [];
+  let kws = keywords.map((k) => String(k).trim()).filter((k) => k.length >= 1 && !STOP.has(k));
+  // 单字关键词一律不参与匹配（"脸"会命中歌词）：它们太容易误伤，宁可不给，也不能给错原文
+  const strong = kws.filter((k) => k.length >= 2);
+  if (!strong.length) return [];
+  kws = strong;
 
   // 打分：命中关键词加分；像在反问的句子减分；全是疑问语气的不要
   const META = /我当时(说|讲|怎么)|原话|我那句|你记不记得/;
@@ -43,7 +45,7 @@ export function searchArchive({ keywords = [], sinceDays = 45, who = 'in', limit
     if (/[？?]$/.test(t)) sc -= 1;
     if (t.length < 6) sc -= 1;
     return { d, sc };
-  }).filter((x) => x.sc >= 1).sort((a, b) => a.d.at - b.d.at);
+  }).filter((x) => x.sc >= 1).sort((a, b) => b.sc - a.sc || b.d.at - a.d.at);
   const hit = scored.map((x) => x.d);
   return hit.slice(-limit).map((d) => ({
     at: d.at,

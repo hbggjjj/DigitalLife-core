@@ -11,7 +11,7 @@ export async function detectQuoteIntent(text) {
   const likely = SIGNAL.test(t) || /[?？].*(说|讲|提)/.test(t) && /(当时|上次|那天|之前|那次)/.test(t);
   if (!likely) return null;                      // 没迹象就不惊动模型
   try {
-    const cfg = JSON.parse(fs.readFileSync((process.env.QQBOT_ROOT || '/root/qqbot-v5') + '/bot/config.json', 'utf8'));
+    const cfg = JSON.parse(fs.readFileSync((process.env.QQBOT_ROOT || '/srv/digitallife') + '/bot/config.json', 'utf8'));
     const key = process.env.DEEPSEEK_API_KEY || (cfg.deepseek && cfg.deepseek.apiKey);
     if (!key) return { keywords: pickKeywords(t), sinceDays: 45, who: 'in' };
     const r = await fetch(`${(cfg.deepseek.baseUrl || 'https://api.deepseek.com').replace(/\/$/, '')}/chat/completions`, {
