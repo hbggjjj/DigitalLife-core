@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // 灵魂缓存：把 SELF / memory / mood 压成一份短文本，让快速回复不用每次读文件
 import fs from 'node:fs';
-import { rankMemory } from './salience.mjs';
+import { rankMemory, selectMemoryTristate } from './salience.mjs';
 import { date as clockDate, now as clockNow } from '../utils/clock.mjs';
 import { brief as errBrief } from '../utils/errlog.mjs';
 import { emit } from '../utils/events.mjs';
@@ -9,9 +9,13 @@ import path from 'node:path';
 
 const LIFE = process.env.LIFE_DIR || '/var/lib/digitallife';
 let lastMemoryIds = [];
+let lastMemoryDetail = [];
 
 /** 最近一次组装上下文时，实际放进去的记忆 id（供 injected 事件使用） */
 export function memoryIdsInPrompt() { return lastMemoryIds.slice(); }
+
+/** 最近一次注入的记忆明细（id / 三态 / 分数），只用于记录注入事件 */
+export function memoryDetailInPrompt() { return lastMemoryDetail.slice(); }
 // 硬护栏：声明沙箱却指向真身 / 或没有 .sandbox 标记 → 拒绝启动
 if (process.env.SANDBOX === '1') {
   if (path.resolve(LIFE) === path.resolve('/var/lib/digitallife')) {
@@ -50,7 +54,12 @@ export function rebuild(force = false) {
     .replace(/\[src:infer\]/g, '（我推的，不是他说的）')
     .replace(/\[src:self\]/g, '（我自己想到的）')
     .replace(/\[src:\w+\]/g, '');
-  const { core: core0, recent: recent0 } = rankMemory(memRaw.split('\n'));
+  const tri = String(process.env.MEM_TRISTATE || '0') === '1';
+  const picked = tri ? selectMemoryTristate(memRaw.split('\n')) : rankMemory(memRaw.split('\n'));
+  const core0 = picked.core, recent0 = picked.recent;
+  if (tri) {
+    lastMemoryDetail = [...core0, ...recent0].map((x) => ({ id: x.id, state: x.state, score: x.score }));
+  }
   lastMemoryIds = [...new Set([...core0, ...recent0].map((x) => x.id))];
   const core = core0.map((x) => ({ ...x, text: showSrc(x.text) }));
   const recent = recent0.map((x) => ({ ...x, text: showSrc(x.text) }));

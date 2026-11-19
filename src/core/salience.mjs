@@ -116,3 +116,64 @@ export function bumpHits(items) {
     return changed;
   } catch { return 0; }
 }
+
+// ---------- 三态记忆选择（实验开关：MEM_TRISTATE=1 才启用；关掉就走原来的 rankMemory） ----------
+const MEM_EVENTS = () => (process.env.LIFE_DIR || '/var/lib/digitallife') + '/mem-events.jsonl';
+
+function loadRecallEvents() {
+  const map = new Map();
+  try {
+    for (const line of fs.readFileSync(MEM_EVENTS(), 'utf8').split('\n')) {
+      if (!line.trim()) continue;
+      let e; try { e = JSON.parse(line); } catch { continue; }
+      if (!e.id || !e.at) continue;
+      if (!map.has(e.id)) map.set(e.id, []);
+      map.get(e.id).push(e.at);
+    }
+  } catch {}
+  return map;
+}
+
+/** 三态：tracked（有事件）/ legacy_unknown（体系之前、无记录）/ idle（体系之后确实没被调用） */
+export function selectMemoryTristate(lines, opts = {}) {
+  const FLOOR = Number(opts.floor !== undefined ? opts.floor : (process.env.MEM_FLOOR || -0.5));
+  const DECAY = 0.5, NOW = Date.now(), DAY = 86400000;
+  const events = loadRecallEvents();
+  let epoch = Infinity;
+  for (const arr of events.values()) for (const t of arr) if (t < epoch) epoch = t;
+  if (!Number.isFinite(epoch)) epoch = NOW;
+
+  const items = lines.map(parseMemoryLine).filter(Boolean).map((it) => {
+    const ev = events.get(it.id) || [];
+    let base, state;
+    if (ev.length) {
+      let sum = 0;
+      for (const t of ev) sum += Math.pow(Math.max(0.2, (NOW - t) / DAY), -DECAY);
+      base = Math.log(sum); state = 'tracked';
+    } else if (it.at && it.at < epoch) {
+      base = -DECAY * Math.log(Math.max(1, (NOW - it.at) / DAY));
+      state = 'legacy_unknown';
+    } else {
+      base = -DECAY * Math.log(Math.max(1, (NOW - (it.at || NOW)) / DAY));
+      state = 'idle';
+    }
+    let score = base;
+    if (state === 'legacy_unknown') score = Math.max(score, FLOOR);   // 严格下限
+    return { ...it, state, score, ev: ev.length };
+  });
+
+  const coreLimit = opts.coreLimit || 18;
+  const core = items.filter((x) => x.w >= 4).sort((a, b) => b.score - a.score || b.at - a.at).slice(0, coreLimit);
+  const coreSet = new Set(core.map((x) => x.id));
+  // 最近记得的：按分数取 12 条 + 给 legacy_unknown 预留 8 个名额（否则旧记忆永远挤不进来）
+  const rest = items.filter((x) => !coreSet.has(x.id));
+  const byScore = rest.slice().sort((a, b) => b.score - a.score || b.at - a.at).slice(0, 12);
+  const chosen = new Set(byScore.map((x) => x.id));
+  const legacyQuota = rest
+    .filter((x) => x.state === 'legacy_unknown' && !chosen.has(x.id))
+    .sort((a, b) => b.w - a.w || b.at - a.at)
+    .slice(0, 8);
+  const recent = byScore.concat(legacyQuota);
+
+  return { core, recent, items };
+}

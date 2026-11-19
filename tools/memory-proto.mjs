@@ -8,6 +8,7 @@ import path from 'node:path';
 
 const LIFE = process.argv[2] || process.env.LIFE_DIR || '/var/lib/digitallife';
 const QUERY = process.argv[3] || '';
+const FLOOR = process.argv[4] !== undefined ? Number(process.argv[4]) : -0.5;   // legacy_unknown 的临时下限
 const DECAY = 0.5;        // ACT-R 的 d
 const NOISE = 0.25;       // 每次读入时的随机扰动（模拟"有时想得起有时想不起"）
 
@@ -81,19 +82,32 @@ function weightOf(t) {
 
 const events = loadEvents();
 
+// 事件体系从第一条事件开始生效；早于这个时刻、又没有事件的，是 legacy_unknown（历史未知）
+let EPOCH = Infinity;
+for (const arr of events.values()) for (const t of arr) if (t < EPOCH) EPOCH = t;
+if (!Number.isFinite(EPOCH)) EPOCH = Date.now();
+
 const file = path.join(LIFE, 'memory.md');
 const raw = fs.readFileSync(file, 'utf8');
 const items = parseMemory(raw).map((it) => {
   const ev = events.get(it.id) || [];
-  let act;
+  let act, state;
   if (ev.length) {
     let sum = 0;
     for (const t of ev) sum += Math.pow(Math.max(0.2, (now - t) / DAY), -DECAY);
     act = Math.log(sum);
+    state = 'tracked';
+  } else if (it.at < EPOCH) {
+    // 历史未知：统计体系建立之前的记忆，不能当成"从未被想起"
+    act = Math.max(activation(it), FLOOR);
+    state = 'legacy_unknown';
   } else {
-    act = activation(it);          // 没有事件记录：只按日期衰减
+    act = activation(it);          // 统计体系建立后确实没被调用过：正常衰减
+    state = 'idle';
   }
-  return { ...it, ev: ev.length, w: weightOf(it.text), act: act + (Math.random() - 0.5) * 2 * NOISE };
+  let scored = act + (Math.random() - 0.5) * 2 * NOISE;
+  if (state === 'legacy_unknown') scored = Math.max(scored, FLOOR);   // 严格下限：噪声也不许穿
+  return { ...it, ev: ev.length, state, w: weightOf(it.text), act: scored };
 });
 
 const byAct = [...items].sort((a, b) => b.act - a.act);
@@ -134,20 +148,33 @@ for (const k of ['近 7 天', '8–30 天', '1–3 个月', '3 个月以上']) {
 }
 console.log('');
 
+const byState = {};
+for (const it of items) byState[it.state] = (byState[it.state] || 0) + 1;
+console.log(`状态：tracked ${byState.tracked || 0} 条 · legacy_unknown ${byState.legacy_unknown || 0} 条 · idle ${byState.idle || 0} 条   （legacy 下限 ${FLOOR}）`);
+console.log('');
+
 console.log('--- 上下文会读到哪些（三段配额）---');
 console.log(`核心 ${core.length} 条（w≥4）  最新 ${recent.length} 条（7 天内）  相关 ${rel.length} 条${QUERY ? '（查询：' + QUERY + '）' : '（未给查询）'}`);
 console.log(`共 ${chosen.size} 条 / ${chars} 字  （上一次实际注入上限 10000 字）`);
 console.log('');
 
+if (QUERY) {
+  console.log(`--- 查询「${QUERY}」勾到的条目（前 8）---`);
+  for (const it of [...rel].slice(0, 8)) {
+    console.log(`  ${it.state.padEnd(14)} w${it.w}  ${it.date || '(无日期)'}  ${it.text.slice(0, 30)}`);
+  }
+  console.log('');
+}
+
 console.log('--- 激活度最高的 12 条 ---');
 for (const it of byAct.slice(0, 12)) {
-  console.log(`  ${it.act.toFixed(2).padStart(6)}  w${it.w}  ev${String(it.ev).padStart(3)}  h${String(it.hits).padStart(3)}  ${it.date || '(无日期)'}  ${it.text.slice(0, 30)}`);
+  console.log(`  ${it.act.toFixed(2).padStart(6)}  ${it.state.padEnd(14)} w${it.w}  ev${String(it.ev).padStart(2)}  ${it.date || '(无日期)'}  ${it.text.slice(0, 28)}`);
 }
 console.log('');
 
 console.log('--- 激活度最低的 8 条（"想不起来"的候选）---');
 for (const it of byAct.slice(-8)) {
-  console.log(`  ${it.act.toFixed(2).padStart(6)}  w${it.w}  ev${String(it.ev).padStart(3)}  h${String(it.hits).padStart(3)}  ${it.date || '(无日期)'}  ${it.text.slice(0, 30)}`);
+  console.log(`  ${it.act.toFixed(2).padStart(6)}  ${it.state.padEnd(14)} w${it.w}  ev${String(it.ev).padStart(2)}  ${it.date || '(无日期)'}  ${it.text.slice(0, 28)}`);
 }
 console.log('');
 

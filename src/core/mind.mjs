@@ -11,7 +11,7 @@ import { popular as biliPopular, feed as biliFeed, search as biliSearch, format 
 import { emit } from '../utils/events.mjs';
 import { trace as traceCall } from '../utils/trace.mjs';
 import { logMemoryEvent } from '../utils/mem-events.mjs';
-import { memoryIdsInPrompt } from './soul.mjs';
+import { memoryIdsInPrompt, memoryDetailInPrompt } from './soul.mjs';
 
 const LIFE = process.env.LIFE_DIR || '/var/lib/digitallife';
 import { assertLifeDir } from '../utils/lifedir.mjs';
@@ -346,7 +346,10 @@ let _netUsed = false;   // 这一轮是否用过网上的材料（用于给记�
 
 async function run(messages, maxTokens, opts = {}) {
   const turn = String(Date.now()) + Math.random().toString(36).slice(2, 6);
-  try { logMemoryEvent('injected', memoryIdsInPrompt(), turn); } catch {}
+  try {
+    const detail = memoryDetailInPrompt();
+    logMemoryEvent('injected', detail.length ? detail : memoryIdsInPrompt(), turn);
+  } catch {}
   const raw1 = await call(messages, maxTokens);
   logRaw(opts.kind || 'reply', raw1);
   traceCall({ kind: opts.kind || 'reply', model: cfg.deepseek.model || 'deepseek-chat', messages, raw: raw1 });

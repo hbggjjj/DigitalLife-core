@@ -10,19 +10,25 @@ const LIFE = process.env.LIFE_DIR || '/var/lib/digitallife';
 const FILE = path.join(LIFE, 'mem-events.jsonl');
 const seen = new Map();   // turnId -> Set(id)
 
-export function logMemoryEvent(kind, ids, turnId = '') {
+export function logMemoryEvent(kind, items, turnId = '') {
   try {
-    const list = (Array.isArray(ids) ? ids : [ids]).filter(Boolean);
+    const raw = Array.isArray(items) ? items : [items];
+    const list = raw.filter(Boolean).map((x) => (typeof x === 'object' ? x : { id: x }));
     if (!list.length) return;
     const turn = turnId || String(Date.now());
     let set = seen.get(turn);
     if (!set) { set = new Set(); seen.set(turn, set); if (seen.size > 200) seen.delete(seen.keys().next().value); }
     const rows = [];
-    for (const id of list) {
+    for (const it of list) {
+      const id = it.id;
+      if (!id) continue;
       const key = kind + ':' + id;
       if (set.has(key)) continue;      // 同一轮同一条只记一次
       set.add(key);
-      rows.push(JSON.stringify({ at: Date.now(), kind, id, turn }));
+      const row = { at: Date.now(), kind, id, turn };
+      if (it.state) row.state = it.state;
+      if (typeof it.score === 'number') row.score = Math.round(it.score * 100) / 100;
+      rows.push(JSON.stringify(row));
     }
     if (rows.length) fs.appendFileSync(FILE, rows.join('\n') + '\n');
   } catch {}
