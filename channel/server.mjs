@@ -118,6 +118,17 @@ function broadcast(item) {
   for (const res of clients) { try { res.write(payload); } catch {} }
 }
 
+
+// 客户端在线 = 最近有真实的客户端请求（拉历史 / 带 PIN 发消息）。
+// 写进 service 正在读的 client-presence.json，别让它再去看 VoceChat 时代的旧文件。
+function touchPresence() {
+  try {
+    const root = process.env.QQBOT_ROOT || '/srv/digitallife';
+    fs.mkdirSync(root + '/bot', { recursive: true });
+    fs.writeFileSync(root + '/bot/client-presence.json', JSON.stringify({ at: Date.now(), src: 'channel' }));
+  } catch {}
+}
+
 function json(res, obj, code = 200) {
   res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
   res.end(JSON.stringify(obj));
@@ -142,6 +153,7 @@ async function handle(req, res) {
   // 增量拉历史：?since=<id>
   if (p === '/history') {
     lastClientAt = Date.now();
+    touchPresence();
     const since = Number(u.searchParams.get('since') || 0);
     const limit = Math.min(500, Math.max(1, Number(u.searchParams.get('limit') || 200)));
     const rest = cache.filter((m) => m.id > since);
@@ -215,7 +227,7 @@ async function handle(req, res) {
       if (!text && !images.length) return json(res, { ok: false, message: '空消息' }, 400);
       let accepted = false, asUser = false;
       const clientPin = String(req.headers['x-device-pin'] || '');
-      if (clientPin) lastClientAt = Date.now();
+      if (clientPin) { lastClientAt = Date.now(); touchPresence(); }
       let code = 0;
       try {
         const r = await forward(text, 'user', images, clientPin);
