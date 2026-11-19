@@ -442,9 +442,20 @@ async function run(messages, maxTokens, opts = {}) {
       } catch {}
       try {
         const v = await import('../services/bili_vision.mjs');
-        const got = await v.frames(list[0].bvid, 8);
+        // 先用视频流里的真帧（按时间均匀取样，覆盖整段）；失败再退回预览雪碧图
+        let got = null;
+        try {
+          const durSec = (() => {
+            const t = String((d && d.dur) || '');
+            const m = t.match(/^(\d+):(\d{2})$/);
+            return m ? Number(m[1]) * 60 + Number(m[2]) : 0;
+          })();
+          got = await v.realFrames(list[0].bvid, { cid: d && d.cid, durSec, want: 12 });
+        } catch { got = null; }
+        if (!got) got = await v.frames(list[0].bvid, 8);
         shotPaths = got.frames.map((f) => f.path);
-        material += '\n\n——画面上抽了 8 帧（' + got.frames.map((f) => f.at ? f.at + '秒处' : 'UP 主挑的封面').join('、') + '），就在下面——';
+        const where = got.real ? '视频里按时间取的' : '预览图里的';
+        material += '\n\n——' + where + shotPaths.length + ' 帧（' + got.frames.map((f) => f.at != null ? f.at + '秒处' : '封面').join('、') + '），就在下面——';
       } catch (e) { warnOnce('抽帧失败：' + e.message, 'warn'); }
     }
     try {

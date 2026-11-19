@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // 视频画面：用 B 站自带的预览雪碧图抽帧，交给她的多模态调用。
 // 她看到的是几个不同时间点的画面（连环画），不是连续动作。
 import fs from 'node:fs';
@@ -55,7 +56,7 @@ export async function sprite(bvid) {
   const info = s.data || {};
   const url = (info.image && info.image[0]) || '';
   return {
-    title: d.title, up: d.owner?.name, dur: d.duration,
+    title: d.title, up: d.owner?.name, dur: d.duration, cid,
     cover: d.pic, sprite: url.startsWith('//') ? 'https:' + url : url,
     cols: info.img_x_len || 10, rows: info.img_y_len || 10,
     fw: info.img_x_size || 480, fh: info.img_y_size || 270,
@@ -134,4 +135,93 @@ print(json.dumps(out))
 
 export function cleanup(dir) {
   try { fs.rmSync(dir, { recursive: true, force: true }); } catch {}
+}
+
+// ---------- 真帧：从视频流里按时间点取画面（比雪碧图清楚，能自己挑秒数） ----------
+
+/** 拿 cid（playurl 必须带） */
+async function getCid(bvid) {
+  try {
+    const j = await jget(`https://api.bilibili.com/x/web-interface/view?bvid=${encodeURIComponent(bvid)}`);
+    const d = j && j.data;
+    return (d && (d.cid || (d.pages && d.pages[0] && d.pages[0].cid))) || 0;
+  } catch { return 0; }
+}
+
+/** 取 DASH 视频轨直链（带签名，约 2 小时有效） */
+async function videoStream(bvid, cid, qn = 64) {
+  await ensureCookie();
+  const u = `https://api.bilibili.com/x/player/playurl?bvid=${encodeURIComponent(bvid)}&cid=${cid}&qn=${qn}&fnval=16&fourk=1`;
+  const j = await jget(u);
+  const dash = j && j.data && j.data.dash;
+  if (!dash || !Array.isArray(dash.video) || !dash.video.length) return null;
+  // 优先要 720p 左右的那档，没有就取最高的
+  const sorted = dash.video.slice().sort((a, b) => (b.height || 0) - (a.height || 0));
+  const pick = sorted.find((v) => (v.height || 0) <= 720) || sorted[0];
+  const url = pick.baseUrl || pick.base_url;
+  return url ? { url, height: pick.height || 0 } : null;
+}
+
+/** 把视频轨拉到本地（ffmpeg 直接读 https 会崩，先落盘再抽帧） */
+async function downloadStream(url, dest) {
+  const args = [
+    '-sL', '--max-time', '180', '--max-filesize', '300000000',
+    '-H', 'Referer: https://www.bilibili.com/',
+    '-H', `User-Agent: ${UA['User-Agent']}`,
+    '-o', dest, url,
+  ];
+  if (COOKIE) args.splice(1, 0, '-H', `Cookie: ${COOKIE}`);
+  execFileSync('curl', args, { timeout: 190000, stdio: 'ignore' });
+  return fs.existsSync(dest) && fs.statSync(dest).size > 100000;
+}
+
+/** 从本地文件按秒数取一帧（不联网，稳定） */
+function grabAt(file, sec, out) {
+  execFileSync('ffmpeg', [
+    '-hide_banner', '-loglevel', 'error',
+    '-ss', String(Math.max(0, sec)),
+    '-i', file,
+    '-frames:v', '1', '-q:v', '3', '-y', out,
+  ], { timeout: 30000, stdio: 'ignore' });
+  return fs.existsSync(out) && fs.statSync(out).size > 2000;
+}
+
+/**
+ * 她真正看到的帧：按时间均匀取样，覆盖整段视频。
+ * 任何环节失败都退回雪碧图（宁可糊，也不能让她这次什么都看不见）。
+ */
+export async function realFrames(bvid, { cid, durSec = 0, want = 12, qn = 64 } = {}) {
+  const n = Math.max(4, Math.min(24, Number(want) || 12));
+  const dur = Number(durSec) || 0;
+  const c = Number(cid) || (await getCid(bvid));
+  if (!c) return null;
+  let stream = null;
+  try { stream = await videoStream(bvid, c, qn); } catch { stream = null; }
+  if (!stream) return null;           // 交给调用方退回雪碧图
+
+  const dir = `/tmp/realframes-${bvid}-${Date.now()}`;
+  fs.mkdirSync(dir, { recursive: true });
+  const total = dur > 0 ? dur : 0;
+  const at = [];
+  if (total >= n * 2) {
+    for (let i = 0; i < n; i++) at.push(Math.round((total * (i + 0.5)) / n));
+  } else {
+    for (let i = 0; i < n; i++) at.push(i * 2);      // 太短就每 2 秒一张
+  }
+
+  await ensureCookie();
+  const src = `${dir}/src.m4s`;
+  let ready = false;
+  try { ready = await downloadStream(stream.url, src); } catch { ready = false; }
+  if (!ready) { try { fs.rmSync(dir, { recursive: true, force: true }); } catch {} return null; }
+  const out = [];
+  for (let i = 0; i < at.length; i++) {
+    const p = `${dir}/f${String(i).padStart(2, '0')}.jpg`;
+    let ok = false;
+    try { ok = grabAt(src, at[i], p); } catch { ok = false; }
+    if (ok) out.push({ i, at: at[i], path: p, height: stream.height });
+  }
+  try { fs.unlinkSync(src); } catch {}
+  if (out.length < 3) { try { fs.rmSync(dir, { recursive: true, force: true }); } catch {} return null; }
+  return { info: { dir, height: stream.height, count: out.length }, frames: out, dir, real: true };
 }
