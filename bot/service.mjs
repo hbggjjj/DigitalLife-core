@@ -14,6 +14,7 @@ import path from 'node:path';
 import { syncFramework, verifySync } from '../src/utils/sync-framework.mjs';
 import { buildContext } from '../src/core/context.mjs';
 import { takeFacts, takeReceipts } from '../src/utils/swallowed.mjs';
+import { takeReportReceipts } from '../src/utils/reports.mjs';
 import { recentNeeds } from '../src/core/inner.mjs';
 import { reply as mindReply, followup as mindFollowup, applyActions, pickSay, auditSchema, probe as mindProbe } from '../src/core/mind.mjs';
 import { emit, setLane } from '../src/utils/events.mjs';
@@ -715,9 +716,17 @@ function memoryFullHint() {
       hidden += '\n\n【回执】\n' + rec.map((x) => `- 你登记的「${x.text}」已收到（编号 ${x.id}）。`).join('\n');
     }
   } catch {}
+  // 「不对劲」的回执：她报的每一条都必须有回音
+  try {
+    const rep = takeReportReceipts();
+    if (rep.length) {
+      hidden += '\n\n【回执·不对劲】\n' + rep.map((x) => `- 你报的「${x.text}」已收到（编号 ${x.id}）。我会去查，结论会写进 life/self-reports.md。`).join('\n');
+    }
+  } catch {}
   const result = await mindReply(historyLines + hidden, userText, buildSelfStats() + sleepHint + clientPresenceLine() + oneMessageHint(), { imagePath, channelNote, fromTag });
   const segs = pickSay(result);
-  const applied = applyActions(result, { evidence: String(userText || '') + '\n' + String(historyLines || '').slice(-600), msgId: String(userText || '').slice(0, 12) });
+  const maintTurn = !!(flags && flags.maint);
+  const applied = applyActions(result, { maint: maintTurn, evidence: String(userText || '') + '\n' + String(historyLines || '').slice(-600), msgId: String(userText || '').slice(0, 12) });
   // 她可以在任何一次回复里改自己的"下次醒来"——不用等下一次生活循环
   try {
     const aim = Number(result && result.awakeIn);
@@ -1130,7 +1139,8 @@ async function handleMessage(ev) {
   let result0 = null;
   let genError = '';
   try {
-    const gen = await generateReply(lines, text, lookPath, isDebug ? 'debug' : (isSelfim ? 'selfim' : 'qq'), { agent: agentSent, resend: isResend });
+    const gen = await generateReply(lines, text, lookPath, isDebug ? 'debug' : (isSelfim ? 'selfim' : 'qq'),
+      { agent: agentSent, resend: isResend, maint: origin !== 'user' });
     segs = gen.segs || [];
     result0 = gen.result || null;
     resultMeme = lastMeme;
@@ -1270,6 +1280,7 @@ async function handleMessage(ev) {
     await sendMeme(uid, resultMeme);
   }
   for (const sg of segs) pushHistory({ dir: 'out', text: sg, at: Date.now(), via: uid === 'selfim' ? 'selfim' : 'qq' });
+  if (maintTurn) return;      // 维护通道回合到此为止：不改任何状态、不排档期、不写历史
   const st2 = loadState();
   if (st2.lastSilenceAt && Date.now() - st2.lastSilenceAt > 2 * 3600 * 1000) st2.silenceCount = 0;
   saveState(st2);

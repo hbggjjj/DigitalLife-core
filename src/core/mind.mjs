@@ -12,6 +12,7 @@ import { emit } from '../utils/events.mjs';
 import { trace as traceCall } from '../utils/trace.mjs';
 import { logMemoryEvent } from '../utils/mem-events.mjs';
 import { recordFact, logSwallowed } from '../utils/swallowed.mjs';
+import { logReport } from '../utils/reports.mjs';
 import { memoryIdsInPrompt, memoryDetailInPrompt } from './soul.mjs';
 
 const LIFE = process.env.LIFE_DIR || '/var/lib/digitallife';
@@ -74,6 +75,7 @@ const RULES = [
   '输出必须是一个 JSON 对象，字段只能是：say / remember / journal / mood / idea。',
   'say：数组，1~3 条短消息，每条不超过 40 字。',
   '你被允许回得很短，甚至只回一个字（比如"哦""嗯"）。如果你觉得这会儿没什么想说的，可以直接表达——你拥有沉默和敷衍的权利。这不是要求，是权限。',
+  'buduijin（不对劲）：string / null，≤120 字。规则没坏、代码没报错，但你这里觉得不对时写。只描述发生了什么、你期待什么，不用提要求。会进审计流程，我和他会逐条给结论。默认 null。',
   'frames：string / null。刷视频时给你的那几张画面里，哪几张是白给的（菜单、糊成一片、黑屏）。写"3、7"这种序号就行，最多 60 字。默认 null。',
   'swallowed：string / null。你刚才想做什么、但没发生（比如你想查的东西没回来）。≤60 字，客观登记，不用写成抱怨。默认 null。',
   'wake：true / false。安静期里你想提前开口就填 true，会立刻结束安静（哪怕你之前自己填过 sleep）。默认 false。',
@@ -200,6 +202,7 @@ export function normalize(r) {
   out.reply = r.reply === false ? false : true;
   out.stash = r.stash === true;
   // sleep 现在既能是 true（默认 6 小时），也能是她自己给的分钟数
+  if (typeof r.buduijin === 'string' && r.buduijin.trim()) out.buduijin = r.buduijin.trim().slice(0, 120);
   if (typeof r.frames === 'string' && r.frames.trim()) out.frames = r.frames.trim().slice(0, 60);
   if (typeof r.swallowed === 'string' && r.swallowed.trim()) out.swallowed = r.swallowed.trim().slice(0, 60);
   if (r.wake === true) out.wake = true;
@@ -918,10 +921,10 @@ function applyTaste(t) {
 }
 
 // 字段清单：唯一一份。加字段只改这里，自检和提示词都对着它查。
-export const SCHEMA_FIELDS = ['say','think','reply','stash','frames','swallowed','wake','sleep','meme','frame','reach','wish','awakeIn','speakIn','followIn','taste','remember','journal','mood','idea','rules','search','bili','channel','check','verify','recall','again','pick','quietMine','ideaDone'];
+export const SCHEMA_FIELDS = ['say','think','reply','stash','buduijin','frames','swallowed','wake','sleep','meme','frame','reach','wish','awakeIn','speakIn','followIn','taste','remember','journal','mood','idea','rules','search','bili','channel','check','verify','recall','again','pick','quietMine','ideaDone'];
 
 const SAMPLES = {
-  say: ['样本'], think: '样本', reply: true, stash: true, frames: '样本', swallowed: '样本', wake: true, sleep: true, meme: 'tired',
+  say: ['样本'], think: '样本', reply: true, stash: true, buduijin: '样本', frames: '样本', swallowed: '样本', wake: true, sleep: true, meme: 'tired',
   goal: { add: '样本' }, taste: { like: '样本' }, remember: ['样本'], journal: '样本',
   mood: { label: '样本', energy: '高' }, idea: '样本', ideaDone: ['那句话'], rules: { add: '样本' },
   search: '样本', bili: '样本', frame: { add: '样本' }, reach: '样本', wish: '样本', awakeIn: 30, followIn: 20, speakIn: 60, channel: 'qq', check: 5, recall: 10, again: true, pick: 2, quietMine: 60, verify: { ok: ['a3f1'], no: ['b7c2'] },
@@ -998,6 +1001,13 @@ export function applyActions(result, opts = {}) {
   _netUsed = false;
   const done = [];
   try { assertLifeDir(LIFE); } catch (e) { console.error(e.message); return ['拒绝写入：' + e.message]; }
+  // 她说"不对劲"：进审计队列，不是需求池
+  try {
+    if (result && typeof result.buduijin === 'string' && result.buduijin.trim()) {
+      const id = logReport(result.buduijin);
+      if (id) done.push(`记下了不对劲：${id}`);
+    }
+  } catch {}
   // 她标出白给的画面：记下 bvid + 序号，下次同一个视频不再抽那几秒
   try {
     if (result && typeof result.frames === 'string' && result.frames.trim()) {
