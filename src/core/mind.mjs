@@ -15,9 +15,9 @@ import { memoryIdsInPrompt, memoryDetailInPrompt } from './soul.mjs';
 
 const LIFE = process.env.LIFE_DIR || '/var/lib/digitallife';
 import { assertLifeDir } from '../utils/lifedir.mjs';
-const cfg = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/config.json', 'utf8'));
+const cfg = JSON.parse(fs.readFileSync('/srv/digitallife/bot/config.json', 'utf8'));
 let MEME_CATS = {};
-try { MEME_CATS = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/meme_cats.json', 'utf8')); } catch {}
+try { MEME_CATS = JSON.parse(fs.readFileSync('/srv/digitallife/bot/meme_cats.json', 'utf8')); } catch {}
 const p2 = (n) => String(n).padStart(2, '0');
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`; };
 const nowStr = () => { const d = new Date(); return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`; };
@@ -45,7 +45,7 @@ async function call(messages, maxTokens = 500, tries = 3, tempOverride = null) {
       const j = JSON.parse(t);
       try {
         if (j.usage) {
-          fs.appendFileSync('/root/qqbot-v5/bot/usage.jsonl', JSON.stringify({
+          fs.appendFileSync('/srv/digitallife/bot/usage.jsonl', JSON.stringify({
             ts: Date.now(), in: j.usage.prompt_tokens || 0, out: j.usage.completion_tokens || 0,
           }) + '\n');
         }
@@ -73,6 +73,7 @@ const RULES = [
   '输出必须是一个 JSON 对象，字段只能是：say / remember / journal / mood / idea。',
   'say：数组，1~3 条短消息，每条不超过 40 字。',
   '你被允许回得很短，甚至只回一个字（比如"哦""嗯"）。如果你觉得这会儿没什么想说的，可以直接表达——你拥有沉默和敷衍的权利。这不是要求，是权限。',
+  'wake：true / false。安静期里你想提前开口就填 true，会立刻结束安静（哪怕你之前自己填过 sleep）。默认 false。',
   'sleep：true / 数字 / false。他要是说要去睡了、晚安、困了，这条填 true（默认安静 6 小时）；也可以填分钟数（比如 90），表示你自己想安静 90 分钟。默认 false。',
   'think：字符串。一句你心里真正在想的话——不会发出去，只有你自己看得到。可以是没说出口的吐槽、犹豫、或者你注意到的细节。不超过 30 字。',
   'reply：true 或 false。十条里至少有一两条你是没回的——不想接、没想好、觉得回了反而多余。这不是失礼。',
@@ -178,7 +179,7 @@ const warns = [];
 function warnOnce(msg, level = 'normalize') {
   if (warns.includes(msg + level)) return;   // 同样的消息一次运行只记一次，免得刷屏
   warns.push(msg + level);
-  try { fs.appendFileSync('/root/qqbot-v5/bot/normalize.log', `[${new Date().toISOString()}] ${level}: ${msg}\n`); } catch {}
+  try { fs.appendFileSync('/srv/digitallife/bot/normalize.log', `[${new Date().toISOString()}] ${level}: ${msg}\n`); } catch {}
   try { emit('brain', level, msg); } catch {}
 }
 const str = (v) => (typeof v === 'string' && v.trim() ? v.trim() : null);
@@ -196,6 +197,7 @@ export function normalize(r) {
   out.reply = r.reply === false ? false : true;
   out.stash = r.stash === true;
   // sleep 现在既能是 true（默认 6 小时），也能是她自己给的分钟数
+  if (r.wake === true) out.wake = true;
   if (r.sleep === true) out.sleep = true;
   else if (Number.isFinite(Number(r.sleep)) && Number(r.sleep) > 0) out.sleep = Math.min(720, Math.round(Number(r.sleep)));
 
@@ -882,10 +884,10 @@ function applyTaste(t) {
 }
 
 // 字段清单：唯一一份。加字段只改这里，自检和提示词都对着它查。
-export const SCHEMA_FIELDS = ['say','think','reply','stash','sleep','meme','frame','reach','wish','awakeIn','speakIn','followIn','taste','remember','journal','mood','idea','rules','search','bili','channel','check','verify','recall','again','pick','quietMine','ideaDone'];
+export const SCHEMA_FIELDS = ['say','think','reply','stash','wake','sleep','meme','frame','reach','wish','awakeIn','speakIn','followIn','taste','remember','journal','mood','idea','rules','search','bili','channel','check','verify','recall','again','pick','quietMine','ideaDone'];
 
 const SAMPLES = {
-  say: ['样本'], think: '样本', reply: true, stash: true, sleep: true, meme: 'tired',
+  say: ['样本'], think: '样本', reply: true, stash: true, wake: true, sleep: true, meme: 'tired',
   goal: { add: '样本' }, taste: { like: '样本' }, remember: ['样本'], journal: '样本',
   mood: { label: '样本', energy: '高' }, idea: '样本', ideaDone: ['那句话'], rules: { add: '样本' },
   search: '样本', bili: '样本', frame: { add: '样本' }, reach: '样本', wish: '样本', awakeIn: 30, followIn: 20, speakIn: 60, channel: 'qq', check: 5, recall: 10, again: true, pick: 2, quietMine: 60, verify: { ok: ['a3f1'], no: ['b7c2'] },
@@ -954,10 +956,22 @@ export function applyActions(result, opts = {}) {
   _netUsed = false;
   const done = [];
   try { assertLifeDir(LIFE); } catch (e) { console.error(e.message); return ['拒绝写入：' + e.message]; }
+  // 她自己要提前结束安静：直接清 quietUntil / quietUntilMine（她有权改自己刚下的决定）
+  try {
+    if (result && (result.wake === true)) {
+      const sp = path.join(process.env.QQBOT_ROOT || '/srv/digitallife', 'bot', 'state.json');
+      const st = JSON.parse(fs.readFileSync(sp, 'utf8'));
+      if (st.quietUntil || st.quietUntilMine) {
+        st.quietUntil = 0; st.quietUntilMine = 0; st.sleepGraceUntil = 0;
+        fs.writeFileSync(sp, JSON.stringify(st, null, 2));
+        done.push('她自己结束了安静');
+      }
+    }
+  } catch {}
   // 核对结果：确认记 ok，否认记 no（并且留痕，她自己看得见）
   try {
     if (result && result.verify && (result.verify.ok?.length || result.verify.no?.length)) {
-      const sp = path.join(process.env.QQBOT_ROOT || '/root/qqbot-v5', 'bot', 'state.json');
+      const sp = path.join(process.env.QQBOT_ROOT || '/srv/digitallife', 'bot', 'state.json');
       let st = {};
       try { st = JSON.parse(fs.readFileSync(sp, 'utf8')); } catch { st = {}; }
       const find = (id) => (typeof id === 'string' && id.length >= 2) ? (st.history || []).find((h) => h.id === id) : null;
@@ -986,7 +1000,7 @@ export function applyActions(result, opts = {}) {
   try {
     if (result && result.quietMine !== undefined && result.quietMine !== null) {
       const mins = Number(result.quietMine) || 0;
-      const sp = path.join(process.env.QQBOT_ROOT || '/root/qqbot-v5', 'bot', 'state.json');
+      const sp = path.join(process.env.QQBOT_ROOT || '/srv/digitallife', 'bot', 'state.json');
       let st = {};
       try { st = JSON.parse(fs.readFileSync(sp, 'utf8')); } catch { st = {}; }
       if (mins > 0) {
@@ -1006,7 +1020,7 @@ export function applyActions(result, opts = {}) {
   // 她自己选了投递通道：记进 state，并且留痕（她自己看得见）
   try {
     if (result && (result.channel === 'qq' || result.channel === 'web')) {
-      const sp = path.join(process.env.QQBOT_ROOT || '/root/qqbot-v5', 'bot', 'state.json');
+      const sp = path.join(process.env.QQBOT_ROOT || '/srv/digitallife', 'bot', 'state.json');
       let st = {};
       try { st = JSON.parse(fs.readFileSync(sp, 'utf8')); } catch { st = {}; }
       if (st.channel !== result.channel) {
@@ -1023,7 +1037,7 @@ export function applyActions(result, opts = {}) {
       // 按字数算（默认 1 万字），不再按条数
       let CAP_CHARS = 10000;
       try {
-        const cfgM = JSON.parse(fs.readFileSync(path.join(process.env.QQBOT_ROOT || '/root/qqbot-v5', 'bot', 'config.json'), 'utf8'));
+        const cfgM = JSON.parse(fs.readFileSync(path.join(process.env.QQBOT_ROOT || '/srv/digitallife', 'bot', 'config.json'), 'utf8'));
         if (Number.isFinite(Number(cfgM.memoryChars))) CAP_CHARS = Math.max(2000, Math.min(40000, Number(cfgM.memoryChars)));
       } catch {}
       let adds = [];

@@ -597,8 +597,9 @@ async function generateReply(historyLines, userText, imagePath = null, channel =
 async function generateReplyInner(historyLines, userText, imagePath = null, channel = 'qq', flags = {}) {
   if (imagePath) setTimeout(() => { try { fs.unlinkSync(imagePath); } catch {} }, 15000);
   const t0 = Date.now();
+  // 不再按"睡"字改她能不能上网——那是系统替她做决定
   const sleepHint = SLEEP_RE.test(userText)
-    ? '\n（他这句话里出现了"睡"字——但这不代表他现在就要去睡：他可能是在说昨晚睡的、在开玩笑、或者在解释。\n你自己判断：他是不是真的要去睡了？\n如果是 → sleep 填 true（我会安静下来，不打扰他）；如果你想再聊两句 → sleep 填 false，正常回。\n别因为一个字就把他晾六小时。）'
+    ? '\n（他这句里出现了"睡"字，但那是他的字，不是你的决定：他可能在说昨晚、开玩笑、或者在解释。\n安静不安静、安静多久，都是你定：sleep 填 true 就按默认时长安静，填分钟数（比如 90）就按你给的，填 false 就正常聊。\n安静期间你要是想开口，随时可以用 wake 提前结束。）'
     : '';
   const channelNote = channel === 'debug'
       ? '（这条来自调试框：他不会收到你的回复，只会显示在调试面板里。）'
@@ -698,7 +699,7 @@ function memoryFullHint() {
   } catch (e) { log('原文检索失败：' + e.message); }
   hidden += conflictHint(historyLines, userText);
   hidden += memoryFullHint();
-  const result = await mindReply(historyLines + hidden, userText, buildSelfStats() + sleepHint + clientPresenceLine() + oneMessageHint(), { noBrowse: SLEEP_RE.test(userText), imagePath, channelNote, fromTag });
+  const result = await mindReply(historyLines + hidden, userText, buildSelfStats() + sleepHint + clientPresenceLine() + oneMessageHint(), { imagePath, channelNote, fromTag });
   const segs = pickSay(result);
   const applied = applyActions(result, { evidence: String(userText || '') + '\n' + String(historyLines || '').slice(-600), msgId: String(userText || '').slice(0, 12) });
   // 她可以在任何一次回复里改自己的"下次醒来"——不用等下一次生活循环
