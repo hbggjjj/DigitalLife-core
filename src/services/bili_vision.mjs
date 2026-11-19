@@ -239,6 +239,20 @@ function grabAt(file, sec, out) {
  * 她真正看到的帧：按时间均匀取样，覆盖整段视频。
  * 任何环节失败都退回雪碧图（宁可糊，也不能让她这次什么都看不见）。
  */
+/** 她标过"白给"的秒数（同一个视频） */
+function uselessSeconds(bvid) {
+  try {
+    const f = (process.env.QQBOT_ROOT || '/srv/digitallife') + '/bot/frame-feedback.jsonl';
+    const out = [];
+    for (const line of fs.readFileSync(f, 'utf8').split('\n')) {
+      if (!line.trim()) continue;
+      let d; try { d = JSON.parse(line); } catch { continue; }
+      if (d.bvid && d.bvid === bvid && Array.isArray(d.idx)) out.push(...d.idx);
+    }
+    return out;
+  } catch { return []; }
+}
+
 export async function realFrames(bvid, { cid, durSec = 0, want = 12, qn = 64 } = {}) {
   const n = Math.max(4, Math.min(24, Number(want) || 12));
   const dur = Number(durSec) || 0;
@@ -259,13 +273,15 @@ export async function realFrames(bvid, { cid, durSec = 0, want = 12, qn = 64 } =
   const total = dur > 0 ? dur : 0;
   const scenes = sceneTimes(src);                 // 转场时间点（先有文件才能扫）
   const cand = candidateTimes(total, n * 2, scenes);
+  const useless = uselessSeconds(bvid);          // 她标过的"白给"帧（按序号，对应下一次同一视频的候选）
   // 把整段分成 n 个时间段，每段里挑一张最有信息的——保证覆盖，又不留空段
   const end = total > 0 ? total : (cand[cand.length - 1] || 60);
   const out = [];
   for (let b = 0; b < n; b++) {
     const lo = (end * b) / n, hi = (end * (b + 1)) / n;
     const inside = cand.filter((t) => t >= lo && t < hi);
-    const tries = inside.length ? inside.slice(0, 3) : [Math.round((lo + hi) / 2)];
+    let tries = inside.length ? inside.slice(0, 3) : [Math.round((lo + hi) / 2)];
+    if (useless.length) tries = tries.filter((t) => !useless.some((u) => Math.abs(u - t) < 3));
     for (const t of tries) {
       const p = `${dir}/f${String(out.length).padStart(2, '0')}.jpg`;
       let ok = false;

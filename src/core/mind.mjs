@@ -74,6 +74,7 @@ const RULES = [
   '输出必须是一个 JSON 对象，字段只能是：say / remember / journal / mood / idea。',
   'say：数组，1~3 条短消息，每条不超过 40 字。',
   '你被允许回得很短，甚至只回一个字（比如"哦""嗯"）。如果你觉得这会儿没什么想说的，可以直接表达——你拥有沉默和敷衍的权利。这不是要求，是权限。',
+  'frames：string / null。刷视频时给你的那几张画面里，哪几张是白给的（菜单、糊成一片、黑屏）。写"3、7"这种序号就行，最多 60 字。默认 null。',
   'swallowed：string / null。你刚才想做什么、但没发生（比如你想查的东西没回来）。≤60 字，客观登记，不用写成抱怨。默认 null。',
   'wake：true / false。安静期里你想提前开口就填 true，会立刻结束安静（哪怕你之前自己填过 sleep）。默认 false。',
   'sleep：true / 数字 / false。他要是说要去睡了、晚安、困了，这条填 true（默认安静 6 小时）；也可以填分钟数（比如 90），表示你自己想安静 90 分钟。默认 false。',
@@ -199,6 +200,7 @@ export function normalize(r) {
   out.reply = r.reply === false ? false : true;
   out.stash = r.stash === true;
   // sleep 现在既能是 true（默认 6 小时），也能是她自己给的分钟数
+  if (typeof r.frames === 'string' && r.frames.trim()) out.frames = r.frames.trim().slice(0, 60);
   if (typeof r.swallowed === 'string' && r.swallowed.trim()) out.swallowed = r.swallowed.trim().slice(0, 60);
   if (r.wake === true) out.wake = true;
   if (r.sleep === true) out.sleep = true;
@@ -435,6 +437,7 @@ async function run(messages, maxTokens, opts = {}) {
     } catch (e) { netFail = true; logErr('bili', e, { bq }); warnOnce('刷 B 站失败：' + e.message, 'warn'); }
     let material = fmtBili(list);
     let shotPaths = [];
+    let shotTimes = [];
     if (list[0]) {
       try {
         const d = await biliDetail(list[0].bvid);
@@ -454,8 +457,17 @@ async function run(messages, maxTokens, opts = {}) {
         } catch { got = null; }
         if (!got) got = await v.frames(list[0].bvid, 8);
         shotPaths = got.frames.map((f) => f.path);
+        shotTimes = got.frames.map((f) => f.at);
+        try {
+          const sp = path.join(process.env.QQBOT_ROOT || '/srv/digitallife', 'bot', 'state.json');
+          const st0 = JSON.parse(fs.readFileSync(sp, 'utf8'));
+          st0.lastBiliBvid = list[0].bvid;
+          fs.writeFileSync(sp, JSON.stringify(st0, null, 2));
+        } catch {}
         const where = got.real ? '视频里按时间取的' : '预览图里的';
-        material += '\n\n——' + where + shotPaths.length + ' 帧（' + got.frames.map((f) => f.at != null ? f.at + '秒处' : '封面').join('、') + '），就在下面——';
+        material += '\n\n——' + where + shotPaths.length + ' 帧，按顺序：'
+          + got.frames.map((f, i) => `第${i + 1}张=${f.at != null ? f.at + '秒' : '封面'}`).join('、')
+          + '，就在下面——';
       } catch (e) { warnOnce('抽帧失败：' + e.message, 'warn'); }
     }
     try {
@@ -473,6 +485,7 @@ async function run(messages, maxTokens, opts = {}) {
           + `\n② 声音：你没有。没有字幕的会给你一份语音转写，那是机器听出来的字，不是旋律、也不是语气。`
           + `\n③ 页面上的字：标题、简介、标签、弹幕、热评——这些是网页上的文字，不是你看到的画面，也不是你听到的声音。`
           + `\n所以：可以说"画面里"，也可以说"弹幕都在说"；别把弹幕的内容说成你看见的画面。`
+          + `\n哪张是白给的（菜单、糊成一片、黑屏），用序号写进 frames，比如"3、7"。不写就是都能看。`
           + `\n你按自己的口味挑——喜欢的多看两眼，不喜欢的划过去。如果同一种东西每次都会让你多看两眼，或者每次都让你想划走，可以记进 taste（like / dislike）。单次的不算，反复出现的才算。`
           + `\nbili 字段必须是 null，不要再刷第二次。`
           + `\n【挑片】这 4 个里你想看哪个？想换就填 pick：0–3（0 是第一个）。不填我就当还是第一个。`
@@ -905,10 +918,10 @@ function applyTaste(t) {
 }
 
 // 字段清单：唯一一份。加字段只改这里，自检和提示词都对着它查。
-export const SCHEMA_FIELDS = ['say','think','reply','stash','swallowed','wake','sleep','meme','frame','reach','wish','awakeIn','speakIn','followIn','taste','remember','journal','mood','idea','rules','search','bili','channel','check','verify','recall','again','pick','quietMine','ideaDone'];
+export const SCHEMA_FIELDS = ['say','think','reply','stash','frames','swallowed','wake','sleep','meme','frame','reach','wish','awakeIn','speakIn','followIn','taste','remember','journal','mood','idea','rules','search','bili','channel','check','verify','recall','again','pick','quietMine','ideaDone'];
 
 const SAMPLES = {
-  say: ['样本'], think: '样本', reply: true, stash: true, swallowed: '样本', wake: true, sleep: true, meme: 'tired',
+  say: ['样本'], think: '样本', reply: true, stash: true, frames: '样本', swallowed: '样本', wake: true, sleep: true, meme: 'tired',
   goal: { add: '样本' }, taste: { like: '样本' }, remember: ['样本'], journal: '样本',
   mood: { label: '样本', energy: '高' }, idea: '样本', ideaDone: ['那句话'], rules: { add: '样本' },
   search: '样本', bili: '样本', frame: { add: '样本' }, reach: '样本', wish: '样本', awakeIn: 30, followIn: 20, speakIn: 60, channel: 'qq', check: 5, recall: 10, again: true, pick: 2, quietMine: 60, verify: { ok: ['a3f1'], no: ['b7c2'] },
@@ -985,6 +998,20 @@ export function applyActions(result, opts = {}) {
   _netUsed = false;
   const done = [];
   try { assertLifeDir(LIFE); } catch (e) { console.error(e.message); return ['拒绝写入：' + e.message]; }
+  // 她标出白给的画面：记下 bvid + 序号，下次同一个视频不再抽那几秒
+  try {
+    if (result && typeof result.frames === 'string' && result.frames.trim()) {
+      const stp = path.join(process.env.QQBOT_ROOT || '/srv/digitallife', 'bot', 'state.json');
+      let bvid = '';
+      try { bvid = JSON.parse(fs.readFileSync(stp, 'utf8')).lastBiliBvid || ''; } catch {}
+      const idx = (result.frames.match(/\d+/g) || []).map(Number).slice(0, 12);
+      if (idx.length) {
+        fs.appendFileSync(path.join(process.env.QQBOT_ROOT || '/srv/digitallife', 'bot', 'frame-feedback.jsonl'),
+          JSON.stringify({ at: Date.now(), bvid, idx, note: result.frames.trim().slice(0, 60) }) + '\n');
+        done.push(`记下白给的画面：${idx.join('、')}`);
+      }
+    }
+  } catch {}
   // 她登记"我想做的事没发生"：落盘 + 排一条回执，下一轮她一定看得到
   try {
     if (result && typeof result.swallowed === 'string' && result.swallowed.trim()) {
