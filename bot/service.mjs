@@ -14,7 +14,7 @@ import path from 'node:path';
 import { syncFramework, verifySync } from '../src/utils/sync-framework.mjs';
 import { buildContext } from '../src/core/context.mjs';
 import { takeFacts, takeReceipts } from '../src/utils/swallowed.mjs';
-import { takeReportReceipts } from '../src/utils/reports.mjs';
+import { takeReportReceipts, clusters } from '../src/utils/reports.mjs';
 import { recentNeeds } from '../src/core/inner.mjs';
 import { reply as mindReply, followup as mindFollowup, applyActions, pickSay, auditSchema, probe as mindProbe } from '../src/core/mind.mjs';
 import { emit, setLane } from '../src/utils/events.mjs';
@@ -720,7 +720,14 @@ function memoryFullHint() {
   try {
     const rep = takeReportReceipts();
     if (rep.length) {
-      hidden += '\n\n【回执·不对劲】\n' + rep.map((x) => `- 你报的「${x.text}」已收到（编号 ${x.id}）。我会去查，结论会写进 life/self-reports.md。`).join('\n');
+      const cl = clusters();
+      const hit = (r) => cl.find((g) => g.ids.includes(r.id));
+      hidden += '\n\n【回执·不对劲】\n' + rep.map((x) => {
+        const g = hit(x);
+        const same = g ? `\n  同类你最近 ${g.ids.length} 次报的都是这个（${g.kind === 'rule' ? '规则' : g.kind === 'field' ? '字段' : '关键词'}：${g.key}）。`
+          : '';
+        return `- 你报的「${x.text}」已收到（编号 ${x.id}）。我会去查，结论会写进 life/self-reports.md。${same}`;
+      }).join('\n');
     }
   } catch {}
   const result = await mindReply(historyLines + hidden, userText, buildSelfStats() + sleepHint + clientPresenceLine() + oneMessageHint(), { imagePath, channelNote, fromTag });

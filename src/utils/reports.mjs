@@ -24,12 +24,32 @@ const HER_VIEW = path.join(LIFE, 'self-reports.md');
 const readJson = (p, d) => { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return d; } };
 const writeJson = (p, v) => { try { fs.writeFileSync(p, JSON.stringify(v, null, 2)); } catch {} };
 
+// ---------- 结构化归类：只认规则编号 / 字段名 / 关键词，三样都必须字面命中 ----------
+const RULE_RE = /规则([一二三四五六七八九十]|\d)/g;
+const STOP = new Set(['这个', '那个', '什么', '不是', '我不', '觉得', '好像', '就是', '一个', '时候', '但是', '因为', '所以', '现在', '自己', '有点', '已经', '还是', '一样', '这种', '那样']);
+
+/** 从一条报告里抽结构：规则编号、字段名、关键词（各取字面命中，不做语义推断） */
+export function extractKeys(text) {
+  const t = String(text || '');
+  const rules = [...new Set([...t.matchAll(RULE_RE)].map((m) => '规则' + m[1]))];
+  const FIELDS = ['buduijin', 'swallowed', 'frames', 'sleep', 'wake', 'recall', 'check', 'say', 'reply',
+    'remember', 'journal', 'mood', 'taste', 'wish', 'search', 'bili', 'awakeIn', 'speakIn', 'followIn', 'stash', 'reach', 'again', 'pick', 'verify', 'think', 'meme', 'channel', 'rules'];
+  const fields = FIELDS.filter((f) => t.includes(f));
+  // 关键词：连续 2–4 个汉字的片段，去掉停用词，按出现次数排
+  const BAD_START = /^[我你他她它的了着过就很还也都又没不别再把被给让和跟对从到]/;
+  const cand = (t.match(/[\u4e00-\u9fa5]{2,3}/g) || []).filter((w) => !STOP.has(w) && !BAD_START.test(w));
+  const freq = new Map();
+  for (const w of cand) freq.set(w, (freq.get(w) || 0) + 1);
+  const keywords = [...freq.entries()].filter(([, n]) => n >= 1).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([w]) => w);
+  return { rules, fields, keywords };
+}
+
 /** 她报一条。只记录，不判断。 */
 export function logReport(text) {
   const t = String(text || '').trim().slice(0, 120);
   if (!t) return null;
-  const id = 'b' + Date.now().toString(36).slice(-5);
-  const rec = { id, at: Date.now(), text: t, status: 'pending' };
+  const id = 'b' + Date.now().toString(36).slice(-5) + Math.random().toString(36).slice(2, 4);
+  const rec = { id, at: Date.now(), text: t, status: 'pending', ...extractKeys(t) };
   try { fs.appendFileSync(REPORTS, JSON.stringify(rec) + '\n'); } catch {}
   try {
     const ts = new Date(rec.at + 8 * 3600e3).toISOString().slice(0, 16).replace('T', ' ');
@@ -39,6 +59,30 @@ export function logReport(text) {
   pend.push(rec);
   writeJson(RECEIPTS, pend.slice(-10));
   return id;
+}
+
+/**
+ * 同类聚合：同一规则编号 / 同一字段 / 同一关键词，14 天内 ≥3 次。
+ * 只做字面匹配，不做语义归并——避免把她几件不同的事合成一件。
+ */
+export function clusters({ days = 14, min = 3 } = {}) {
+  let rows = [];
+  try { rows = fs.readFileSync(REPORTS, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)); } catch { return []; }
+  const since = Date.now() - days * 86400000;
+  rows = rows.filter((r) => r.at >= since);
+  const groups = new Map();
+  const add = (kind, key, r) => {
+    const k = kind + ':' + key;
+    if (!groups.has(k)) groups.set(k, { kind, key, ids: [], latest: 0 });
+    const g = groups.get(k);
+    if (!g.ids.includes(r.id)) { g.ids.push(r.id); g.latest = Math.max(g.latest, r.at); }
+  };
+  for (const r of rows) {
+    for (const x of (r.rules || [])) add('rule', x, r);
+    for (const x of (r.fields || [])) add('field', x, r);
+    for (const x of (r.keywords || [])) add('word', x, r);
+  }
+  return [...groups.values()].filter((g) => g.ids.length >= min).sort((a, b) => b.ids.length - a.ids.length);
 }
 
 /** 取走待回执（每轮一次，取完即清） */
