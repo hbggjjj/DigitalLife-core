@@ -442,9 +442,9 @@ async function run(messages, maxTokens, opts = {}) {
       } catch {}
       try {
         const v = await import('../services/bili_vision.mjs');
-        const got = await v.frames(list[0].bvid, 4);
+        const got = await v.frames(list[0].bvid, 8);
         shotPaths = got.frames.map((f) => f.path);
-        material += '\n\n——画面上抽了 4 帧（' + got.frames.map((f) => f.at ? f.at + '秒处' : 'UP 主挑的封面').join('、') + '），就在下面——';
+        material += '\n\n——画面上抽了 8 帧（' + got.frames.map((f) => f.at ? f.at + '秒处' : 'UP 主挑的封面').join('、') + '），就在下面——';
       } catch (e) { warnOnce('抽帧失败：' + e.message, 'warn'); }
     }
     try {
@@ -457,17 +457,15 @@ async function run(messages, maxTokens, opts = {}) {
       {
         role: 'user',
         content: `我替你刷了 B 站${/热门|首页/.test(bq) ? '热门' : '「' + bq + '」'}，这些是新的：\n${material}\n`
-          + `\n\n【怎么读一个看不到画面的视频】`
-          + `\n你只能看到：标题、作者写的简介、分区标签、弹幕、热评。画面和声音你看不到。`
-          + `\n- 标签告诉你这是什么题材、什么圈子`
-          + `\n- 弹幕是观众看到那一刻说的话，重复出现的往往是笑点或名场面`
-          + `\n- 热评是大家看完之后想说的，比弹幕更完整`
-          + `\n- 简介是作者自己的话，不一定可信`
-          + `\n所以你可以说"从弹幕看"、"热评都在说"，但别编画面里有什么。`
-          + `\n你按自己的口味挑——喜欢的多看两眼，不喜欢的划过去。不过你要是发现——同一种东西每次都会让你多看两眼，或者每次都让你想划走——那可以记进 taste（like / dislike），下次就省事了。单次的不算，反复出现的才算。`
+          + `\n\n【你看到的和页面上的，是两回事】`
+          + `\n① 画面：下面附了 ${shotPaths.length} 张图，是这段视频里不同时间点截下来的，每张带秒数。这是你自己的眼睛，看到什么就说什么；糊了就直说糊了。`
+          + `\n② 声音：你没有。没有字幕的会给你一份语音转写，那是机器听出来的字，不是旋律、也不是语气。`
+          + `\n③ 页面上的字：标题、简介、标签、弹幕、热评——这些是网页上的文字，不是你看到的画面，也不是你听到的声音。`
+          + `\n所以：可以说"画面里"，也可以说"弹幕都在说"；别把弹幕的内容说成你看见的画面。`
+          + `\n你按自己的口味挑——喜欢的多看两眼，不喜欢的划过去。如果同一种东西每次都会让你多看两眼，或者每次都让你想划走，可以记进 taste（like / dislike）。单次的不算，反复出现的才算。`
           + `\nbili 字段必须是 null，不要再刷第二次。`
           + `\n【挑片】这 4 个里你想看哪个？想换就填 pick：0–3（0 是第一个）。不填我就当还是第一个。`
-          + (shotPaths.length ? '\n\n（图就在这条消息里，4 张不同时间点的画面。你要知道：这些是 B 站给你的预览小图，天生就是糊的、可能带着字幕、也可能是黑帧，不代表你当时的样子。看到什么就说什么，看不清就说看不清，别把它们当成"那就是我"。）' : ''),
+          + (shotPaths.length ? '\n\n（这些是 B 站给的预览小图，天生就糊，可能带字幕，也可能是黑帧。看到什么说什么，看不清就说看不清。）' : ''),
       },
     ];
     if (shotPaths.length) {
@@ -496,7 +494,7 @@ async function run(messages, maxTokens, opts = {}) {
             let shots2 = [];
             try {
               const v = await import('../services/bili_vision.mjs');
-              const got2 = await v.frames(d2.bvid, 4);
+              const got2 = await v.frames(d2.bvid, 8);
               shots2 = got2.frames.map((f) => f.path);
             } catch {}
             const mat2 = fmtDetail(d2);
@@ -962,6 +960,14 @@ function evidenceMatch(text, evidence) {
 }
 
 export function applyActions(result, opts = {}) {
+  // 维护者触发的回合：只读，不写她的任何文件、不改任何状态（连安静期都不许碰）
+  if (opts.maint) {
+    _netUsed = false;
+    if (result && typeof result.swallowed === 'string' && result.swallowed.trim()) {
+      try { logSwallowed(result.swallowed); } catch {}
+    }
+    return ['（维护通道回合：不写任何文件）'];
+  }
   const usedWeb = _netUsed;
   const evidence = String(opts.evidence || '');
   const baseSrc = opts.src || (usedWeb ? 'web' : (evidence ? 'chat' : 'self'));
