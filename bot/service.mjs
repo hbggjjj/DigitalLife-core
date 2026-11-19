@@ -700,21 +700,6 @@ function memoryFullHint() {
   } catch (e) { log('原文检索失败：' + e.message); }
   hidden += conflictHint(historyLines, userText);
   hidden += memoryFullHint();
-  // ⓪ 维护者的告知：不是他说的，也不进对话框
-  try {
-    const nf = path.join(ROOT, 'notices.jsonl');
-    const txt = fs.readFileSync(nf, 'utf8').split('\n').filter(Boolean);
-    const pend = txt.map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean).filter((x) => !x.read);
-    if (pend.length) {
-      hidden += '\n\n【维护者的告知（不是他说的，也不是你说的）】\n'
-        + pend.map((n) => `- ${n.text}`).join('\n');
-      const seen = new Set(pend.map((n) => n.id));
-      fs.writeFileSync(nf, txt.map((l) => {
-        try { const o = JSON.parse(l); if (seen.has(o.id)) { o.read = true; o.readAt = Date.now(); } return JSON.stringify(o); } catch { return l; }
-      }).join('\n') + '\n');
-      try { emit('life', 'notice', '维护者告知已送达她的上下文（不在对话框显示）'); } catch {}
-    }
-  } catch {}
   // ① 上一轮她要求了、但没执行的动作（系统侧事实，不许猜原因）
   try {
     const facts = takeFacts();
@@ -909,7 +894,7 @@ async function sendSegments(uid, segments) {
           }
         } catch {}
         mirrorToChannel(seg);
-        emit('reply', 'out_msg', seg, { uid, via, seg: i + 1, total: segments.length });
+        emit('reply', 'out_msg', seg, { uid, via, actor: 'her', seg: i + 1, total: segments.length });
       } catch (e) {
         log('自建 IM 发送失败：' + e.message);
         emit('reply', 'error', '自建 IM 没发出去，先攒着：' + e.message.slice(0, 60));
@@ -1235,7 +1220,7 @@ async function handleMessage(ev) {
         stR.reachDay = today;
         stR.reachCount = used + 1;
         saveState(stR);
-        emit('reply', 'out_msg', reach, { reach: true, via: proactiveTarget() === 'web' ? 'web' : 'qq' });
+        emit('reply', 'out_msg', reach, { reach: true, actor: 'her', via: proactiveTarget() === 'web' ? 'web' : 'qq' });
         emit('reply', 'reach', '她自己决定破例说了一句（不在活跃时段）：' + reach);
         try {
           const fs2 = await import('node:fs');

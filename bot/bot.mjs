@@ -300,7 +300,7 @@ async function fireOnce(mode = 'idle') {
   state.sentTimes = [...(state.sentTimes || []).filter((t) => Date.now() - t < 24 * 3600e3), Date.now()];
   state.lastSentAt = Date.now();
   saveState(state);
-  emit('nudge', 'out_msg', segs.join(' ｜ '));
+  emit('nudge', 'out_msg', segs.join(' ｜ '), { actor: 'her' });
   log(`主动发出（今日第 ${state.todayCount} 条）: ${segs.join(' / ')}`);
   return segs.join(' / ');
 }
@@ -446,17 +446,14 @@ try {
     log(`NapCat 正常：${me.nickname}(${me.user_id})`);
     try { await deepseek([{ role: 'user', content: '只回复两个字：可用' }]); log('DeepSeek：OK'); } catch (e) { log('DeepSeek：' + e.message); }
   } else if (cmd === 'tell') {
-    // 维护者告知：只写进"她能读到的地方"和待注入队列，绝不进聊天通道
-    // 所以不会在她和他的对话框里出现，也不会触发她回一句话
+    // 维护者的话只进维护通道（面板/调试记录），不进她的上下文、不进对话框
     const t = rest.join(' ').trim(); if (!t) throw new Error('用法: tell "文字"');
     const fsl = await import('node:fs');
-    const rec = { at: Date.now(), id: 'n' + Date.now().toString(36).slice(-5), text: t, from: 'maintainer', read: false };
-    fsl.appendFileSync('./notices.jsonl', JSON.stringify(rec) + '\n');
-    try {
-      fsl.appendFileSync('/var/lib/digitallife/notices.md',
-        `- ${new Date(rec.at + 8 * 3600e3).toISOString().slice(0, 16).replace('T', ' ')}　维护者：${t}（${rec.id}）\n`);
-    } catch {}
-    console.log('已登记告知：' + rec.id + '（不在对话框显示；她下一次思考时会读到）');
+    const rec = { at: Date.now(), dir: 'out', text: t, agent: true, actor: 'maintainer' };
+    fsl.appendFileSync('./debug-chat.jsonl', JSON.stringify(rec) + '\n');
+    const { emit } = await import('../src/utils/events.mjs');
+    try { emit('reply', 'out_msg', t, { actor: 'maintainer', debug: true }); } catch {}
+    console.log('已写入维护通道（面板可见，她不读）');
   } else if (cmd === 'send') {
     // 以她的账号说话 = 冒充她。默认拒绝，除非显式 --as-her（会记账）
     const asHer = rest.includes('--as-her');

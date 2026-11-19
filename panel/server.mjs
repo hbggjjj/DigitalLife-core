@@ -1020,6 +1020,10 @@ function renderEvents(){
   for(var i=0;i<arr.length;i++){
     var e=arr[i], t=TAGS[e.type]||['t-skip',e.type];
     if(e.type==='out_msg' && e.meta && e.meta.followup) t=['t-think','追问'];
+    // 谁发的：her（她自己）/ maintainer（维护者代发）/ system（系统告知）
+    var who = (e.meta && e.meta.actor) || (e.type==='out_msg' ? 'her' : '');
+    if(who==='maintainer') t=['t-err','维护者'];
+    else if(who==='system') t=['t-check','系统'];
     var cls = e.type==='inner' ? ' inner' : '';
     html+='<div class="ev"><div class="t">'+fmtTime(e.ts)+'</div><div class="b'+cls+'"><span class="tag '+t[0]+'">'+t[1]+'</span>'+esc(e.text||'')+'</div></div>';
   }
