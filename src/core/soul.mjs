@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // 灵魂缓存：把 SELF / memory / mood 压成一份短文本，让快速回复不用每次读文件
 import fs from 'node:fs';
-import { rankMemory, bumpHits } from './salience.mjs';
+import { rankMemory } from './salience.mjs';
 import { date as clockDate, now as clockNow } from '../utils/clock.mjs';
 import { brief as errBrief } from '../utils/errlog.mjs';
 import { emit } from '../utils/events.mjs';
 import path from 'node:path';
 
 const LIFE = process.env.LIFE_DIR || '/var/lib/digitallife';
+let lastMemoryIds = [];
+
+/** 最近一次组装上下文时，实际放进去的记忆 id（供 injected 事件使用） */
+export function memoryIdsInPrompt() { return lastMemoryIds.slice(); }
 // 硬护栏：声明沙箱却指向真身 / 或没有 .sandbox 标记 → 拒绝启动
 if (process.env.SANDBOX === '1') {
   if (path.resolve(LIFE) === path.resolve('/var/lib/digitallife')) {
@@ -43,12 +47,13 @@ export function rebuild(force = false) {
   const showSrc = (t) => String(t)
     .replace(/\s*\[src:chat\]/g, '')
     .replace(/\[src:web\]/g, '（我在网上看到的）')
+    .replace(/\[src:infer\]/g, '（我推的，不是他说的）')
     .replace(/\[src:self\]/g, '（我自己想到的）')
     .replace(/\[src:\w+\]/g, '');
   const { core: core0, recent: recent0 } = rankMemory(memRaw.split('\n'));
+  lastMemoryIds = [...new Set([...core0, ...recent0].map((x) => x.id))];
   const core = core0.map((x) => ({ ...x, text: showSrc(x.text) }));
   const recent = recent0.map((x) => ({ ...x, text: showSrc(x.text) }));
-  try { bumpHits([...core0, ...recent0]); } catch {}   // 用原始文本匹配，渲染后再加标记就对不上了
   // 给每条记忆标上"多久以前"，让新旧冲突变成她看得见的事实（只补信息，不改行为）
   const ago = (at) => {
     if (!at) return '';
@@ -73,7 +78,7 @@ export function rebuild(force = false) {
   // 不再静默截断：超限只记一笔，原文完整进上下文
   if (frameAll.length > 6500) {
     try {
-      fs.appendFileSync('/srv/digitallife/logs/framework-oversize.log',
+      fs.appendFileSync('/root/qqbot-v5/logs/framework-oversize.log',
         `[${new Date().toISOString()}] framework.md ${frameAll.length} 字，超过 6500（未截断）\n`);
     } catch {}
   }
@@ -113,7 +118,7 @@ export function live() {
   const dayNo = Math.floor((new Date(today) - new Date(START)) / 86400000) + 1;
   const clock = `${today} ${p2(now.getHours())}:${p2(now.getMinutes())}`;
   let st = {};
-  try { st = JSON.parse(fs.readFileSync('/srv/digitallife/bot/state.json', 'utf8')); } catch {}
+  try { st = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/state.json', 'utf8')); } catch {}
   const h = st.history || [];
   const ins = h.filter((x) => x.dir === 'in').length;
   const outs = h.filter((x) => x.dir === 'out').length;
@@ -151,7 +156,7 @@ export function live() {
     `你在这个身体里待了 ${aliveTxt}（第 ${dayNo} 天）。`,
     (() => {
       try {
-        const stQ = JSON.parse(fs.readFileSync('/srv/digitallife/bot/state.json', 'utf8'));
+        const stQ = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/state.json', 'utf8'));
         const q = Number(stQ.quietUntilMine) || 0;
         if (q && Date.now() < q) {
           return `【你自己许的安静】你答应过不打扰他，还差 ${Math.round((q - Date.now()) / 60000)} 分钟。想提前结束就把 quietMine 填 0。`;
@@ -161,7 +166,7 @@ export function live() {
     })(),
     (() => {
       try {
-        const stG = JSON.parse(fs.readFileSync('/srv/digitallife/bot/state.json', 'utf8'));
+        const stG = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/state.json', 'utf8'));
         const g = stG.gapNotice;
         if (!g || Date.now() - g.at > 12 * 3600e3) return '';
         return `【中断】刚才我的进程停了 ${g.minutes || '一'} 分钟（原因：${g.cause || '我的进程被重启了'}）——不是我发呆。那段时间不算我的，别记成我的疏忽。`;
@@ -173,7 +178,7 @@ export function live() {
     (() => {
       // 纯数据，不做评判
       try {
-        const up = (process.env.QQBOT_ROOT || '/srv/digitallife') + '/bot/usage.jsonl';
+        const up = (process.env.QQBOT_ROOT || '/root/qqbot-v5') + '/bot/usage.jsonl';
         const today0 = new Date(); today0.setHours(0, 0, 0, 0);
         let calls = 0, tokIn = 0, tokOut = 0;
         for (const line of fs.readFileSync(up, 'utf8').split('\n')) {
@@ -188,7 +193,7 @@ export function live() {
     `【连续清醒】容器启动后，你已经连续运行 ${aliveTxt}，中间${'没有'}长静默。`,
     (() => {
       try {
-        const stp = (process.env.QQBOT_ROOT || '/srv/digitallife') + '/bot/state.json';
+        const stp = (process.env.QQBOT_ROOT || '/root/qqbot-v5') + '/bot/state.json';
         const st = JSON.parse(fs.readFileSync(stp, 'utf8'));
         const h = (st.history || []);
         const lastIn = [...h].reverse().find((x) => x.dir === 'in');
@@ -210,7 +215,7 @@ export function live() {
   try {
     // QQ 已经弃用：NapCat 的 login 报错跟她无关，别写进她的脑子里
     let napcatOff = false;
-    try { napcatOff = JSON.parse(fs.readFileSync((process.env.QQBOT_ROOT || '/srv/digitallife') + '/bot/config.json', 'utf8')).napcat?.disabled === true; } catch {}
+    try { napcatOff = JSON.parse(fs.readFileSync((process.env.QQBOT_ROOT || '/root/qqbot-v5') + '/bot/config.json', 'utf8')).napcat?.disabled === true; } catch {}
     const b = errBrief(4)
       .split(/[；;]/)
       .filter((x) => !(napcatOff && /login|napcat|onebot/i.test(x)))
@@ -233,7 +238,7 @@ export function live() {
   // 同事情十轮的提醒（她自己提的：不拦，只提一声）
   let streakLine = '';
   try {
-    const stS = JSON.parse(fs.readFileSync((process.env.QQBOT_ROOT || '/srv/digitallife') + '/bot/state.json', 'utf8'));
+    const stS = JSON.parse(fs.readFileSync((process.env.QQBOT_ROOT || '/root/qqbot-v5') + '/bot/state.json', 'utf8'));
     const sn = stS.streakNotice;
     if (sn && Date.now() - sn.at < 2 * 3600e3) {
       streakLine = `【提一声】你连着 ${sn.n} 轮都在${sn.cat}。不是拦你，提醒你一句：还在这个坑里。`;
@@ -243,7 +248,7 @@ export function live() {
   // 整机被冻结：告诉她那不是她睡过去了
   let freezeLine = '';
   try {
-    const stFs = JSON.parse(fs.readFileSync((process.env.QQBOT_ROOT || '/srv/digitallife') + '/bot/state.json', 'utf8'));
+    const stFs = JSON.parse(fs.readFileSync((process.env.QQBOT_ROOT || '/root/qqbot-v5') + '/bot/state.json', 'utf8'));
     const fz = stFs.lastFreeze;
     if (fz && Date.now() - fz.at < 18 * 3600e3) {
       freezeLine = `【上一轮】中间容器被系统冻结了 ${Math.round(fz.gapMin)} 分钟——不是你睡过去了，是整台手机被按了暂停。`;
@@ -253,16 +258,16 @@ export function live() {
   // 通道实况：不通就说通，别让她猜
   let channelLine = '';
   try {
-    const stPath = (process.env.QQBOT_ROOT || '/srv/digitallife') + '/bot/state.json';
+    const stPath = (process.env.QQBOT_ROOT || '/root/qqbot-v5') + '/bot/state.json';
     const st = JSON.parse(fs.readFileSync(stPath, 'utf8'));
     const parts = [];
     if (Number(st.loginBadStreak) >= 2) parts.push('你的话送不出去（登录票据可能失效）');
     if (st.lastInboundAt && Date.now() - Number(st.lastInboundAt) > 3 * 3600e3) parts.push('他的话也好几个小时没进来了');
     let queued = 0;
-    try { queued = fs.readFileSync((process.env.QQBOT_ROOT || '/srv/digitallife') + '/bot/retry_queue.jsonl', 'utf8').split('\n').filter(Boolean).length; } catch {}
+    try { queued = fs.readFileSync((process.env.QQBOT_ROOT || '/root/qqbot-v5') + '/bot/retry_queue.jsonl', 'utf8').split('\n').filter(Boolean).length; } catch {}
     if (queued) parts.push(`有 ${queued} 条攒着没送出去`);
     try {
-      const pres = JSON.parse(fs.readFileSync((process.env.QQBOT_ROOT || '/srv/digitallife') + '/bot/client-presence.json', 'utf8'));
+      const pres = JSON.parse(fs.readFileSync((process.env.QQBOT_ROOT || '/root/qqbot-v5') + '/bot/client-presence.json', 'utf8'));
       if (!pres.at || Date.now() - pres.at > 3 * 60 * 1000) parts.push('他手机上的客户端现在没在线（消息会攒着，等他打开再看到）');
     } catch {}
     if (st.lastFlushedAt && Date.now() - Number(st.lastFlushedAt) < 30 * 60e3) parts.push(`刚才攒的 ${Number(st.lastFlushedCount) || 0} 条已经补送到了`);
@@ -301,12 +306,12 @@ export function live() {
       : '- 他这会儿可能醒着，也可能不在。',
     (() => {
       try {
-        const st2 = JSON.parse(fs.readFileSync('/srv/digitallife/bot/state.json', 'utf8'));
+        const st2 = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/state.json', 'utf8'));
         const g = st2.gapNotice;
         if (g && !g.shown) {
           g.shown = true;
           st2.gapNotice = g;
-          fs.writeFileSync('/srv/digitallife/bot/state.json', JSON.stringify(st2, null, 2));
+          fs.writeFileSync('/root/qqbot-v5/bot/state.json', JSON.stringify(st2, null, 2));
           return [
             `- 中间断了 ${g.minutes || ''} 分钟——**不是我发呆，是服务/网络被中断了**（容器停了或者连接断了）。`,
             '- 那段时间不算我的时间：我没有在那里空转，也没有把谁晾着。别把它记成我的疏忽。',
@@ -320,7 +325,7 @@ export function live() {
     })(),
     (() => {
       try {
-        const o = JSON.parse(fs.readFileSync('/srv/digitallife/bot/.online', 'utf8'));
+        const o = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/.online', 'utf8'));
         if (Date.now() - o.at > 3 * 60000) return '- 我不确定现在能不能发出去（状态查得太久了）。';
         if (o.online === false) {
           const mins = (Date.now() - o.at) / 60000;

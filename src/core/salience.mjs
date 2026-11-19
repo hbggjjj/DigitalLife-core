@@ -2,7 +2,11 @@
 // 记忆重量：没有显式标记时，按文字里的情绪/关系信号估一个 W1-W5。
 // 只用于"哪些更容易被想起"，不删任何条目。
 import fs from 'node:fs';
+import crypto from 'node:crypto';
+
+const require_id = (x) => crypto.createHash('sha1').update(String(x)).digest('hex').slice(0, 10);
 import { trace as traceCall } from '../utils/trace.mjs';
+import { logMemoryEvent } from '../utils/mem-events.mjs';
 const STRONG = ['喜欢', '爱', '舍不得', '塌了一小块', '记住', '永远', '谢谢', '对不起', '哭', '怕', '难受', '心疼', '重要', '第一次', '答应', '承诺', '走了', '不在'];
 const MID = ['有点', '闷', '凉', '空', '惦记', '想', '等', '吵', '气', '笑', '安心'];
 
@@ -30,11 +34,12 @@ export function parseMemoryLine(line) {
   const src = m[3] || 'chat';
   const hits = m[4] ? Number(m[4]) : 0;
   const at = date ? new Date(date + 'T12:00:00+08:00').getTime() : 0;
+  const id = 'm-' + require_id(date + '|' + text);
   const w = weightOf(text, at);
   // 强度 = 内容重要性 × 被想起的次数（对数）÷ 时间衰减；衰减可逆
   const days = at ? (Date.now() - at) / 86400000 : 0;
   const strength = (w * (1 + Math.log1p(hits))) / (1 + days / 30);
-  return { date, text, at, w, hits, strength, src, raw: line };
+  return { date, text, at, w, hits, strength, src, raw: line, id };
 }
 
 export function rankMemory(lines, { coreMin = 4, coreLimit = 18 } = {}) {
@@ -80,7 +85,9 @@ export async function rerank(query, candidates) {
     traceCall({ kind: 'rerank', model: cfg.deepseek.model || 'deepseek-chat', messages: [{ role: 'user', content: query }], raw: j.choices?.[0]?.message?.content || '' });
     const pick = JSON.parse(j.choices?.[0]?.message?.content || '{}').pick;
     if (!Array.isArray(pick) || !pick.length) return null;
-    return pick.map((n) => candidates[Number(n) - 1]).filter(Boolean);
+    const chosen = pick.map((n) => candidates[Number(n) - 1]).filter(Boolean);
+    try { logMemoryEvent('retrieved', chosen.map((c) => c.id), 'rerank-' + Date.now()); } catch {}
+    return chosen;
   } catch { return null; }
 }
 

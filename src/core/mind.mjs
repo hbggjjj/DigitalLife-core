@@ -10,12 +10,14 @@ import { search as webSearch, headlines, format as fmtWeb } from '../services/we
 import { popular as biliPopular, feed as biliFeed, search as biliSearch, format as fmtBili, detail as biliDetail, formatDetail as fmtDetail } from '../services/bili.mjs';
 import { emit } from '../utils/events.mjs';
 import { trace as traceCall } from '../utils/trace.mjs';
+import { logMemoryEvent } from '../utils/mem-events.mjs';
+import { memoryIdsInPrompt } from './soul.mjs';
 
 const LIFE = process.env.LIFE_DIR || '/var/lib/digitallife';
 import { assertLifeDir } from '../utils/lifedir.mjs';
-const cfg = JSON.parse(fs.readFileSync('/srv/digitallife/bot/config.json', 'utf8'));
+const cfg = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/config.json', 'utf8'));
 let MEME_CATS = {};
-try { MEME_CATS = JSON.parse(fs.readFileSync('/srv/digitallife/bot/meme_cats.json', 'utf8')); } catch {}
+try { MEME_CATS = JSON.parse(fs.readFileSync('/root/qqbot-v5/bot/meme_cats.json', 'utf8')); } catch {}
 const p2 = (n) => String(n).padStart(2, '0');
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`; };
 const nowStr = () => { const d = new Date(); return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`; };
@@ -43,7 +45,7 @@ async function call(messages, maxTokens = 500, tries = 3, tempOverride = null) {
       const j = JSON.parse(t);
       try {
         if (j.usage) {
-          fs.appendFileSync('/srv/digitallife/bot/usage.jsonl', JSON.stringify({
+          fs.appendFileSync('/root/qqbot-v5/bot/usage.jsonl', JSON.stringify({
             ts: Date.now(), in: j.usage.prompt_tokens || 0, out: j.usage.completion_tokens || 0,
           }) + '\n');
         }
@@ -116,6 +118,7 @@ const RULES = [
   '不许替对方命名情绪（"你是不是觉得…""你现在其实是…"），也不许总结人生道理。',
   '可以噎一下、嘟囔、嘴上不认、把话岔回自己身上；可以说"哦"就没了，可以问第二遍。',
   '关心要落在具体事上（"吃了吗""几点睡"），不要落在抽象的"照顾好自己"。',
+  '他说的和你推的要分开：想对了也别当成他真说过；没把握就说没把握，别为了接得上话补一段没发生的事。',
   '不给建议、不给结论；不用"呗""还能怎么办""随你"这种收尾式评判。',
   '不说"随便说点什么"——想问就直接问（"喂，睡了没"）。',
   // 对照：她同意用来校准语气的例子
@@ -173,7 +176,7 @@ const warns = [];
 function warnOnce(msg, level = 'normalize') {
   if (warns.includes(msg + level)) return;   // 同样的消息一次运行只记一次，免得刷屏
   warns.push(msg + level);
-  try { fs.appendFileSync('/srv/digitallife/bot/normalize.log', `[${new Date().toISOString()}] ${level}: ${msg}\n`); } catch {}
+  try { fs.appendFileSync('/root/qqbot-v5/bot/normalize.log', `[${new Date().toISOString()}] ${level}: ${msg}\n`); } catch {}
   try { emit('brain', level, msg); } catch {}
 }
 const str = (v) => (typeof v === 'string' && v.trim() ? v.trim() : null);
@@ -342,6 +345,8 @@ function logRaw(kind, raw, messages) {
 let _netUsed = false;   // 这一轮是否用过网上的材料（用于给记忆标来源）
 
 async function run(messages, maxTokens, opts = {}) {
+  const turn = String(Date.now()) + Math.random().toString(36).slice(2, 6);
+  try { logMemoryEvent('injected', memoryIdsInPrompt(), turn); } catch {}
   const raw1 = await call(messages, maxTokens);
   logRaw(opts.kind || 'reply', raw1);
   traceCall({ kind: opts.kind || 'reply', model: cfg.deepseek.model || 'deepseek-chat', messages, raw: raw1 });
@@ -912,15 +917,38 @@ export function auditSchema() {
   };
 }
 
+
+// 核对一条记忆能不能对上当轮的原话：能对上才算「他说的」，对不上就是「我推的」
+function evidenceMatch(text, evidence) {
+  try {
+    const norm = (t) => String(t || '').replace(/[\s，。！？、,.!?：:；;\u0022\u0027「」（）()]/g, '');
+    const e = norm(evidence);
+    const t = norm(text);
+    if (!e || !t) return false;
+    // 1) 连续 6 个字以上出现在原话里 → 强证据
+    for (let i = 0; i + 6 <= t.length; i++) {
+      if (e.includes(t.slice(i, i + 6))) return true;
+    }
+    // 2) 二元组重合率 ≥ 0.45
+    const grams = (x) => { const m = new Map(); for (let i = 0; i + 2 <= x.length; i++) { const g = x.slice(i, i + 2); m.set(g, (m.get(g) || 0) + 1); } return m; };
+    const tg = grams(t), eg = grams(e);
+    let hit = 0, total = 0;
+    for (const [g, n] of tg) { total += n; if (eg.has(g)) hit += n; }
+    return total > 0 && hit / total >= 0.45;
+  } catch { return false; }
+}
+
 export function applyActions(result, opts = {}) {
-  const src = opts.src || (_netUsed ? 'web' : 'chat');
+  const usedWeb = _netUsed;
+  const evidence = String(opts.evidence || '');
+  const baseSrc = opts.src || (usedWeb ? 'web' : (evidence ? 'chat' : 'self'));
   _netUsed = false;
   const done = [];
   try { assertLifeDir(LIFE); } catch (e) { console.error(e.message); return ['拒绝写入：' + e.message]; }
   // 核对结果：确认记 ok，否认记 no（并且留痕，她自己看得见）
   try {
     if (result && result.verify && (result.verify.ok?.length || result.verify.no?.length)) {
-      const sp = path.join(process.env.QQBOT_ROOT || '/srv/digitallife', 'bot', 'state.json');
+      const sp = path.join(process.env.QQBOT_ROOT || '/root/qqbot-v5', 'bot', 'state.json');
       let st = {};
       try { st = JSON.parse(fs.readFileSync(sp, 'utf8')); } catch { st = {}; }
       const find = (id) => (typeof id === 'string' && id.length >= 2) ? (st.history || []).find((h) => h.id === id) : null;
@@ -949,7 +977,7 @@ export function applyActions(result, opts = {}) {
   try {
     if (result && result.quietMine !== undefined && result.quietMine !== null) {
       const mins = Number(result.quietMine) || 0;
-      const sp = path.join(process.env.QQBOT_ROOT || '/srv/digitallife', 'bot', 'state.json');
+      const sp = path.join(process.env.QQBOT_ROOT || '/root/qqbot-v5', 'bot', 'state.json');
       let st = {};
       try { st = JSON.parse(fs.readFileSync(sp, 'utf8')); } catch { st = {}; }
       if (mins > 0) {
@@ -969,7 +997,7 @@ export function applyActions(result, opts = {}) {
   // 她自己选了投递通道：记进 state，并且留痕（她自己看得见）
   try {
     if (result && (result.channel === 'qq' || result.channel === 'web')) {
-      const sp = path.join(process.env.QQBOT_ROOT || '/srv/digitallife', 'bot', 'state.json');
+      const sp = path.join(process.env.QQBOT_ROOT || '/root/qqbot-v5', 'bot', 'state.json');
       let st = {};
       try { st = JSON.parse(fs.readFileSync(sp, 'utf8')); } catch { st = {}; }
       if (st.channel !== result.channel) {
@@ -986,7 +1014,7 @@ export function applyActions(result, opts = {}) {
       // 按字数算（默认 1 万字），不再按条数
       let CAP_CHARS = 10000;
       try {
-        const cfgM = JSON.parse(fs.readFileSync(path.join(process.env.QQBOT_ROOT || '/srv/digitallife', 'bot', 'config.json'), 'utf8'));
+        const cfgM = JSON.parse(fs.readFileSync(path.join(process.env.QQBOT_ROOT || '/root/qqbot-v5', 'bot', 'config.json'), 'utf8'));
         if (Number.isFinite(Number(cfgM.memoryChars))) CAP_CHARS = Math.max(2000, Math.min(40000, Number(cfgM.memoryChars)));
       } catch {}
       let adds = [];
@@ -1029,7 +1057,11 @@ export function applyActions(result, opts = {}) {
               linesArr[simIdx] = linesArr[simIdx].replace(/^- /, '- [superseded] ');
               done.push('旧说法标成 superseded');
             }
-            linesArr.push(`- ${today()}：${clean} [src:${src}]`);
+            // 有原话可核对：对得上 = 他说的；对不上 = 我推的。没有任何原话（她自己想出来的）= 我推的
+            let src2 = baseSrc;
+            if (baseSrc === 'chat') src2 = evidenceMatch(clean, evidence) ? 'chat' : 'infer';
+            if (baseSrc === 'self') src2 = 'infer';
+            linesArr.push(`- ${today()}：${clean} [src:${src2}]`);
             try {
               fs.appendFileSync(path.join(LIFE, 'memory.log'), JSON.stringify({
                 at: Date.now(), op: simIdx >= 0 ? 'supersede+add' : 'add', text: clean, prev: simIdx >= 0 ? linesArr[simIdx] : null,
