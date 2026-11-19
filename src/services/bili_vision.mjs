@@ -2,7 +2,7 @@
 // 视频画面：用 B 站自带的预览雪碧图抽帧，交给她的多模态调用。
 // 她看到的是几个不同时间点的画面（连环画），不是连续动作。
 import fs from 'node:fs';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 
 const UA = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
@@ -175,6 +175,48 @@ async function downloadStream(url, dest) {
   return fs.existsSync(dest) && fs.statSync(dest).size > 100000;
 }
 
+
+/** 场景转场时间点：ffmpeg 的 scene 分数，够用且零依赖（PySceneDetect 更准但吃 100–180MB 内存） */
+function sceneTimes(file, threshold = 0.3, max = 40) {
+  try {
+    const out = execSync(
+      `ffmpeg -hide_banner -i ${JSON.stringify(file)} -vf "select='gt(scene,${threshold})',showinfo" -vsync vfr -f null - 2>&1`,
+      { timeout: 120000, maxBuffer: 32 * 1024 * 1024, encoding: 'utf8' }
+    );
+    const ts = [];
+    for (const m of out.matchAll(/pts_time:\s*([0-9.]+)/g)) {
+      const v = Number(m[1]);
+      if (Number.isFinite(v) && v >= 0) ts.push(v);
+      if (ts.length >= max) break;
+    }
+    return [...new Set(ts.map((x) => Math.round(x)))].sort((a, b) => a - b);
+  } catch { return []; }
+}
+
+/** 选哪些时间点看：转场优先，均匀补齐，必须覆盖整段 */
+function pickTimes(dur, want, scenes) {
+  const n = Math.max(4, Math.min(24, want));
+  const end = dur > 0 ? dur : (scenes.length ? scenes[scenes.length - 1] + 5 : 60);
+  const picked = [];
+  const near = (v) => picked.some((x) => Math.abs(x - v) < Math.max(2, end / (n * 3)));
+  const push = (t) => {
+    const v = Math.round(t);
+    if (v < 0 || v >= end) return false;
+    if (near(v)) return false;
+    picked.push(v); return true;
+  };
+  // ① 转场：最多占七成名额
+  const budget = Math.min(Math.ceil(n * 0.7), scenes.length);
+  const step = budget > 0 ? scenes.length / budget : 1;
+  for (let i = 0; i < budget; i++) push(scenes[Math.floor(i * step)] + 1);
+  // ② 均匀补齐：在整段上铺，不够就把网格加密
+  for (let k = 1; picked.length < n && k <= 6; k++) {
+    const m = (n - picked.length) + 2;
+    for (let i = 0; i < m && picked.length < n; i++) push((end * (i + 0.5)) / m);
+  }
+  return picked.sort((a, b) => a - b).slice(0, n);
+}
+
 /** 从本地文件按秒数取一帧（不联网，稳定） */
 function grabAt(file, sec, out) {
   execFileSync('ffmpeg', [
@@ -201,19 +243,15 @@ export async function realFrames(bvid, { cid, durSec = 0, want = 12, qn = 64 } =
 
   const dir = `/tmp/realframes-${bvid}-${Date.now()}`;
   fs.mkdirSync(dir, { recursive: true });
-  const total = dur > 0 ? dur : 0;
-  const at = [];
-  if (total >= n * 2) {
-    for (let i = 0; i < n; i++) at.push(Math.round((total * (i + 0.5)) / n));
-  } else {
-    for (let i = 0; i < n; i++) at.push(i * 2);      // 太短就每 2 秒一张
-  }
-
   await ensureCookie();
   const src = `${dir}/src.m4s`;
   let ready = false;
   try { ready = await downloadStream(stream.url, src); } catch { ready = false; }
   if (!ready) { try { fs.rmSync(dir, { recursive: true, force: true }); } catch {} return null; }
+
+  const total = dur > 0 ? dur : 0;
+  const scenes = sceneTimes(src);                 // 转场时间点（先有文件才能扫）
+  const at = pickTimes(total, n, scenes);
   const out = [];
   for (let i = 0; i < at.length; i++) {
     const p = `${dir}/f${String(i).padStart(2, '0')}.jpg`;
