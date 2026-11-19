@@ -962,8 +962,9 @@ async function handleMessage(ev) {
   }
   const agentSent = origin === 'agent';   // 只认 origin，不再靠记得加 _agent
   // 代发不进关系历史：她读的最近对话里不该有"别人拿他的名义说的话"
+  const sysSent = origin === 'system';       // 系统告知：她看得见，但不是他说的、更不是她说的
   if (isDebug || agentSent) pushDebug('in', text, agentSent);
-  else pushHistory({ dir: 'in', text, at: Date.now(), via: isSelfim ? 'selfim' : 'qq', ...(isResend ? { resend: true } : {}) });
+  else pushHistory({ dir: 'in', text, at: Date.now(), via: isSelfim ? 'selfim' : 'qq', ...(isResend ? { resend: true } : {}), ...(sysSent ? { sys: true } : {}) });
   const stIn = loadState();
   if (stIn.lastOut) { stIn.lastOut.followed = true; }
   if (stIn.quietUntil && Date.now() < stIn.quietUntil) {

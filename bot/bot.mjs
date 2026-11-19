@@ -445,8 +445,36 @@ try {
     const me = await loginInfo();
     log(`NapCat 正常：${me.nickname}(${me.user_id})`);
     try { await deepseek([{ role: 'user', content: '只回复两个字：可用' }]); log('DeepSeek：OK'); } catch (e) { log('DeepSeek：' + e.message); }
+  } else if (cmd === 'tell') {
+    // 维护者告知：以"系统"身份进她的上下文（不是他说的，也不是她说的），不走她的账号
+    const t = rest.join(' ').trim(); if (!t) throw new Error('用法: tell "文字"');
+    const cfg2 = JSON.parse((await import('node:fs')).readFileSync('./config.json', 'utf8'));
+    const sec = cfg2.selfim?.secret;
+    if (!sec) throw new Error('config.selfim.secret 缺失');
+    const mid = 'sys-' + Date.now().toString(36);
+    const ts = Date.now();
+    const sig = (await import('node:crypto')).createHmac('sha256', sec)
+      .update([mid, 'system', 'system', String(ts)].join('\n')).digest('hex');
+    const r = await fetch('http://127.0.0.1:7789/inbound', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-IM-Signature': 'hmac-sha256=' + sig, 'X-IM-Timestamp': String(ts) },
+      body: JSON.stringify({ msgId: mid, senderId: 'system', origin: 'system', text: t, ts }),
+      signal: AbortSignal.timeout(15000),
+    });
+    console.log('告知已投递：' + (await r.text()).slice(0, 80));
   } else if (cmd === 'send') {
-    const t = rest.join(' ').trim(); if (!t) throw new Error('用法: send "文字"');
+    // 以她的账号说话 = 冒充她。默认拒绝，除非显式 --as-her（会记账）
+    const asHer = rest.includes('--as-her');
+    const t = rest.filter((x) => x !== '--as-her').join(' ').trim();
+    if (!t) throw new Error('用法: send "文字" [--as-her]');
+    if (!asHer) {
+      console.log('send 会以她的账号发言（等于冒充她）。要告知她请用 tell。');
+      console.log('确实要以她的名义说话，加 --as-her。');
+      process.exit(3);
+    }
+    const fsl = await import('node:fs');
+    fsl.appendFileSync('/var/lib/digitallife/others-edits.md', `| ${new Date().toISOString()} | 维护者用 --as-her 以她的账号发言：${t.slice(0, 40)} | 手动 | 会进她的历史 |
+`);
     await sendText(t);
   } else if (cmd === 'once') { await fireOnce('manual'); }
   else if (cmd === 'check') { await tickOnce(); }
@@ -548,5 +576,5 @@ try {
     console.log('生成结果: ' + (segs.join(' ') || '(她这次不想说)'));
   }
   else if (cmd === 'daemon') { await daemon(); }
-  else console.log('用法: node bot.mjs <doctor|send|gen|request|wish|wish-audit|asr-token|fix|once|check|score|daemon>');
+  else console.log('用法: node bot.mjs <doctor|tell|send|gen|request|wish|wish-audit|asr-token|fix|once|check|score|daemon>');
 } catch (e) { log('错误:', e.message); process.exit(1); }
