@@ -13,6 +13,7 @@ import { assertLifeDir } from '../src/utils/lifedir.mjs';
 import path from 'node:path';
 import { syncFramework, verifySync } from '../src/utils/sync-framework.mjs';
 import { buildContext } from '../src/core/context.mjs';
+import { takeFacts, takeReceipts } from '../src/utils/swallowed.mjs';
 import { recentNeeds } from '../src/core/inner.mjs';
 import { reply as mindReply, followup as mindFollowup, applyActions, pickSay, auditSchema, probe as mindProbe } from '../src/core/mind.mjs';
 import { emit } from '../src/utils/events.mjs';
@@ -699,6 +700,21 @@ function memoryFullHint() {
   } catch (e) { log('原文检索失败：' + e.message); }
   hidden += conflictHint(historyLines, userText);
   hidden += memoryFullHint();
+  // ① 上一轮她要求了、但没执行的动作（系统侧事实，不许猜原因）
+  try {
+    const facts = takeFacts();
+    if (facts.length) {
+      hidden += '\n\n【上一轮没发生的事】\n' + facts.map((f) =>
+        `- 你上一轮要求 ${f.action}「${f.request}」，没有返回结果。（原因：${f.reason}）`).join('\n');
+    }
+  } catch {}
+  // ② 她登记过的"想做的事没发生"，这一轮必须给回执
+  try {
+    const rec = takeReceipts();
+    if (rec.length) {
+      hidden += '\n\n【回执】\n' + rec.map((x) => `- 你登记的「${x.text}」已收到（编号 ${x.id}）。`).join('\n');
+    }
+  } catch {}
   const result = await mindReply(historyLines + hidden, userText, buildSelfStats() + sleepHint + clientPresenceLine() + oneMessageHint(), { imagePath, channelNote, fromTag });
   const segs = pickSay(result);
   const applied = applyActions(result, { evidence: String(userText || '') + '\n' + String(historyLines || '').slice(-600), msgId: String(userText || '').slice(0, 12) });

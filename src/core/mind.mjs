@@ -11,6 +11,7 @@ import { popular as biliPopular, feed as biliFeed, search as biliSearch, format 
 import { emit } from '../utils/events.mjs';
 import { trace as traceCall } from '../utils/trace.mjs';
 import { logMemoryEvent } from '../utils/mem-events.mjs';
+import { recordFact, logSwallowed } from '../utils/swallowed.mjs';
 import { memoryIdsInPrompt, memoryDetailInPrompt } from './soul.mjs';
 
 const LIFE = process.env.LIFE_DIR || '/var/lib/digitallife';
@@ -73,6 +74,7 @@ const RULES = [
   '输出必须是一个 JSON 对象，字段只能是：say / remember / journal / mood / idea。',
   'say：数组，1~3 条短消息，每条不超过 40 字。',
   '你被允许回得很短，甚至只回一个字（比如"哦""嗯"）。如果你觉得这会儿没什么想说的，可以直接表达——你拥有沉默和敷衍的权利。这不是要求，是权限。',
+  'swallowed：string / null。你刚才想做什么、但没发生（比如你想查的东西没回来）。≤60 字，客观登记，不用写成抱怨。默认 null。',
   'wake：true / false。安静期里你想提前开口就填 true，会立刻结束安静（哪怕你之前自己填过 sleep）。默认 false。',
   'sleep：true / 数字 / false。他要是说要去睡了、晚安、困了，这条填 true（默认安静 6 小时）；也可以填分钟数（比如 90），表示你自己想安静 90 分钟。默认 false。',
   'think：字符串。一句你心里真正在想的话——不会发出去，只有你自己看得到。可以是没说出口的吐槽、犹豫、或者你注意到的细节。不超过 30 字。',
@@ -197,6 +199,7 @@ export function normalize(r) {
   out.reply = r.reply === false ? false : true;
   out.stash = r.stash === true;
   // sleep 现在既能是 true（默认 6 小时），也能是她自己给的分钟数
+  if (typeof r.swallowed === 'string' && r.swallowed.trim()) out.swallowed = r.swallowed.trim().slice(0, 60);
   if (r.wake === true) out.wake = true;
   if (r.sleep === true) out.sleep = true;
   else if (Number.isFinite(Number(r.sleep)) && Number(r.sleep) > 0) out.sleep = Math.min(720, Math.round(Number(r.sleep)));
@@ -375,7 +378,9 @@ async function run(messages, maxTokens, opts = {}) {
   // 她说"想知道某件事" → 我们替她查，然后把结果再喂回去，让她接着说
   let netFail = false;
   const noBrowse = !!opts.noBrowse || !!opts.noNet;
-  const q = (!noBrowse && result && typeof result.search === 'string') ? result.search.trim() : '';
+  const askedSearch = result && typeof result.search === 'string' ? result.search.trim() : '';
+  const q = (!noBrowse && askedSearch) ? askedSearch : '';
+  if (askedSearch && !q) recordFact({ action: 'search', request: askedSearch, outcome: 'skipped', reason: '被规则过滤' });
   if (q) {
     // 她问天气：直接查，不绕搜索引擎
     let weatherText = '';
@@ -393,7 +398,12 @@ async function run(messages, maxTokens, opts = {}) {
     }
     let results = [];
     try { results = await webSearch(q, 5); }
-    catch (e) { netFail = true; logErr('search', e, { q }); warnOnce('搜索失败，这条没查到东西：' + e.message, 'warn'); }
+    catch (e) {
+      netFail = true; logErr('search', e, { q }); warnOnce('搜索失败，这条没查到东西：' + e.message, 'warn');
+      const msg = String(e && e.message || e);
+      recordFact({ action: 'search', request: q, outcome: 'failed', reason: /timeout|超时|abort/i.test(msg) ? '超时' : '网络或服务出错' });
+    }
+    if (!netFail && (!results || !results.length)) recordFact({ action: 'search', request: q, outcome: 'empty', reason: '查了，没有结果' });
     const material = (weatherText ? '【天气】' + weatherText + '\n\n' : '') + fmtWeb(results);
     _netUsed = true;
     const second = [
@@ -415,7 +425,9 @@ async function run(messages, maxTokens, opts = {}) {
     } catch {}
   }
   // 她说"想刷B站"
-  const bq = (!noBrowse && result && typeof result.bili === 'string') ? result.bili.trim() : '';
+  const askedBili = result && typeof result.bili === 'string' ? result.bili.trim() : '';
+  const bq = (!noBrowse && askedBili) ? askedBili : '';
+  if (askedBili && !bq) recordFact({ action: 'bili', request: askedBili, outcome: 'skipped', reason: '被规则过滤' });
   if (bq && !q) {
     let list = [], repeatTitles = [];
     try {
@@ -884,10 +896,10 @@ function applyTaste(t) {
 }
 
 // 字段清单：唯一一份。加字段只改这里，自检和提示词都对着它查。
-export const SCHEMA_FIELDS = ['say','think','reply','stash','wake','sleep','meme','frame','reach','wish','awakeIn','speakIn','followIn','taste','remember','journal','mood','idea','rules','search','bili','channel','check','verify','recall','again','pick','quietMine','ideaDone'];
+export const SCHEMA_FIELDS = ['say','think','reply','stash','swallowed','wake','sleep','meme','frame','reach','wish','awakeIn','speakIn','followIn','taste','remember','journal','mood','idea','rules','search','bili','channel','check','verify','recall','again','pick','quietMine','ideaDone'];
 
 const SAMPLES = {
-  say: ['样本'], think: '样本', reply: true, stash: true, wake: true, sleep: true, meme: 'tired',
+  say: ['样本'], think: '样本', reply: true, stash: true, swallowed: '样本', wake: true, sleep: true, meme: 'tired',
   goal: { add: '样本' }, taste: { like: '样本' }, remember: ['样本'], journal: '样本',
   mood: { label: '样本', energy: '高' }, idea: '样本', ideaDone: ['那句话'], rules: { add: '样本' },
   search: '样本', bili: '样本', frame: { add: '样本' }, reach: '样本', wish: '样本', awakeIn: 30, followIn: 20, speakIn: 60, channel: 'qq', check: 5, recall: 10, again: true, pick: 2, quietMine: 60, verify: { ok: ['a3f1'], no: ['b7c2'] },
@@ -956,6 +968,13 @@ export function applyActions(result, opts = {}) {
   _netUsed = false;
   const done = [];
   try { assertLifeDir(LIFE); } catch (e) { console.error(e.message); return ['拒绝写入：' + e.message]; }
+  // 她登记"我想做的事没发生"：落盘 + 排一条回执，下一轮她一定看得到
+  try {
+    if (result && typeof result.swallowed === 'string' && result.swallowed.trim()) {
+      const id = logSwallowed(result.swallowed);
+      if (id) done.push(`记下了：${id}`);
+    }
+  } catch {}
   // 她自己要提前结束安静：直接清 quietUntil / quietUntilMine（她有权改自己刚下的决定）
   try {
     if (result && (result.wake === true)) {
