@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // 上下文组装：按"轮次"而不是按"条数"截取。
 // 原则：不删她说过的任何话，只把连续的单向独白压成一行，防止模型被自己的焦虑反复喂。
 export function buildContext(history, { maxTurns = 4, maxLines = 16 } = {}) {
@@ -44,5 +45,13 @@ function fmt(h) {
   if (h.resend) tag += '·补发（当时被系统拦下）';
   if (h.corrected) tag += '·原话有错别字';
   if (h.sys) tag = '系统';
-  return `[${tag}] ${who}: ${h.text}`;
+  // 带上时间：不然她只能靠猜"这是几点说的"
+  let t = '';
+  if (h.at) {
+    const d = new Date(Number(h.at) + 8 * 3600e3);
+    const hh = String(d.getUTCHours()).padStart(2, '0');
+    const mi = String(d.getUTCMinutes()).padStart(2, '0');
+    t = `${hh}:${mi} `;
+  }
+  return `[${tag}] ${who}${t ? ' ' + t : ' '}: ${h.text}`;
 }
