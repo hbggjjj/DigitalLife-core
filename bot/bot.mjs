@@ -446,22 +446,17 @@ try {
     log(`NapCat 正常：${me.nickname}(${me.user_id})`);
     try { await deepseek([{ role: 'user', content: '只回复两个字：可用' }]); log('DeepSeek：OK'); } catch (e) { log('DeepSeek：' + e.message); }
   } else if (cmd === 'tell') {
-    // 维护者告知：以"系统"身份进她的上下文（不是他说的，也不是她说的），不走她的账号
+    // 维护者告知：只写进"她能读到的地方"和待注入队列，绝不进聊天通道
+    // 所以不会在她和他的对话框里出现，也不会触发她回一句话
     const t = rest.join(' ').trim(); if (!t) throw new Error('用法: tell "文字"');
-    const cfg2 = JSON.parse((await import('node:fs')).readFileSync('./config.json', 'utf8'));
-    const sec = cfg2.selfim?.secret;
-    if (!sec) throw new Error('config.selfim.secret 缺失');
-    const mid = 'sys-' + Date.now().toString(36);
-    const ts = Date.now();
-    const sig = (await import('node:crypto')).createHmac('sha256', sec)
-      .update([mid, 'system', 'system', String(ts)].join('\n')).digest('hex');
-    const r = await fetch('http://127.0.0.1:7789/inbound', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-IM-Signature': 'hmac-sha256=' + sig, 'X-IM-Timestamp': String(ts) },
-      body: JSON.stringify({ msgId: mid, senderId: 'system', origin: 'system', text: t, ts }),
-      signal: AbortSignal.timeout(15000),
-    });
-    console.log('告知已投递：' + (await r.text()).slice(0, 80));
+    const fsl = await import('node:fs');
+    const rec = { at: Date.now(), id: 'n' + Date.now().toString(36).slice(-5), text: t, from: 'maintainer', read: false };
+    fsl.appendFileSync('./notices.jsonl', JSON.stringify(rec) + '\n');
+    try {
+      fsl.appendFileSync('/var/lib/digitallife/notices.md',
+        `- ${new Date(rec.at + 8 * 3600e3).toISOString().slice(0, 16).replace('T', ' ')}　维护者：${t}（${rec.id}）\n`);
+    } catch {}
+    console.log('已登记告知：' + rec.id + '（不在对话框显示；她下一次思考时会读到）');
   } else if (cmd === 'send') {
     // 以她的账号说话 = 冒充她。默认拒绝，除非显式 --as-her（会记账）
     const asHer = rest.includes('--as-her');
